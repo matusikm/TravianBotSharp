@@ -20,36 +20,33 @@
   </PropertyGroup>-->
 
   <ItemGroup>
-    <PackageReference Include="FluentValidation" Version="12.1.1" />
-    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
-    <PackageReference Include="FluentResults" Version="4.0.0" />
-    <PackageReference Include="Humanizer.Core" Version="3.0.10" />
-    <PackageReference Include="Immediate.Handlers" Version="4.2.0" />
-    <PackageReference Include="Injectio" Version="6.2.0">
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="FluentResults" />
+    <PackageReference Include="Humanizer.Core" />
+    <PackageReference Include="Immediate.Handlers" />
+    <PackageReference Include="Injectio">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
-    <PackageReference Include="Patchright" Version="1.63.0" />
-    <PackageReference Include="Polly" Version="8.8.0" />
-    <PackageReference Include="ReactiveUI" Version="24.2.0" />
-    <PackageReference Include="ReactiveUI.SourceGenerators" Version="3.2.0">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Patchright" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="ReactiveUI" />
+    <PackageReference Include="ReactiveUI.SourceGenerators" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Expressions" />
+    <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Serilog.Sinks.Map" />
+    <PackageReference Include="SonarAnalyzer.CSharp">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Serilog" Version="4.4.0" />
-    <PackageReference Include="Serilog.Expressions" Version="5.0.0" />
-    <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
-    <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-    <PackageReference Include="Serilog.Sinks.Map" Version="2.0.0" />
-    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.34.0.3385">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Splat" Version="21.0.0" />
-    <PackageReference Include="Splat.Drawing" Version="21.0.0" />
-    <PackageReference Include="Splat.Microsoft.Extensions.DependencyInjection" Version="21.0.0" />
-    <PackageReference Include="StronglyTypedId" Version="1.0.0-beta06" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Splat" />
+    <PackageReference Include="Splat.Drawing" />
+    <PackageReference Include="Splat.Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="StronglyTypedId" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 </Project>
