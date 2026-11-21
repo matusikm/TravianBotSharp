@@ -55,8 +55,11 @@ TBS has two desktop front ends that share the same bot core (`MainCore`):
    ```
 
 The database (`TBS.db`), `logs/` and Chrome profiles (`Data/`) are stored next to the executable, the same as on Windows.
+
+Account and proxy passwords are encrypted in `TBS.db`. On Windows the key is your Windows user (DPAPI); on Linux it is `~/.config/TravianBotSharp/secret.key`, readable only by you. If you move `TBS.db` to another computer or user, or delete that key, re-enter the passwords.
 For development, `dotnet run --project AvaloniaUI` works too.
 Run the tests with `dotnet test --project MainCore.Test` (they need Google Chrome installed).
+After changing an entity, add a migration with `dotnet tool restore` and `dotnet ef migrations add <Name> --project MainCore --output-dir Infrasturecture/Migrations`.
 
 ## FAQs
 

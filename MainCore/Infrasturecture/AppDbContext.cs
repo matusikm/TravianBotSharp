@@ -1,5 +1,7 @@
 ﻿using System.Collections.Immutable;
 
+using MainCore.Infrasturecture.Security;
+
 using StronglyTypedIds;
 
 [assembly: StronglyTypedIdDefaults(backingType: StronglyTypedIdBackingType.Int, converters: StronglyTypedIdConverter.None)]
@@ -10,6 +12,21 @@ namespace MainCore.Infrasturecture
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
+        }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Passwords are encrypted at rest. Plaintext from older versions still reads back,
+            // and DatabaseInitializer re-saves it encrypted on start.
+            modelBuilder.Entity<Access>(access =>
+            {
+                access.Property(x => x.Password)
+                    .HasConversion(v => SecretProtection.Protect(v), v => SecretProtection.Unprotect(v));
+                access.Property(x => x.ProxyPassword)
+                    .HasConversion(v => SecretProtection.Protect(v), v => SecretProtection.Unprotect(v));
+            });
         }
 
         #region table

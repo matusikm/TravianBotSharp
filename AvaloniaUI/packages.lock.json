@@ -732,7 +732,8 @@
           "Serilog.Sinks.Map": "[2.0.0, )",
           "Splat": "[21.0.0, )",
           "Splat.Drawing": "[21.0.0, )",
-          "Splat.Microsoft.Extensions.DependencyInjection": "[21.0.0, )"
+          "Splat.Microsoft.Extensions.DependencyInjection": "[21.0.0, )",
+          "System.Security.Cryptography.ProtectedData": "[10.0.15, )"
         }
       },
       "FluentResults": {
@@ -937,6 +938,12 @@
           "ReactiveUI.Disposables": "7.1.0",
           "Splat.Core": "21.0.0"
         }
+      },
+      "System.Security.Cryptography.ProtectedData": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.15, )",
+        "resolved": "10.0.15",
+        "contentHash": "AG49oTxB0R4YQJzeIIHRgqyaI3SOT8Q8vEfGUcju2WxOvsBkDJU4FKTQ8gYQAYCxmHOHqyJL0UDGcCf8nzRoiw=="
       }
     },
     "net10.0/linux-x64": {
