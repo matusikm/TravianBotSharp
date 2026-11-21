@@ -103,6 +103,35 @@ public static class Parsers
         }
     }
 
+    /// <summary>
+    /// Build time of the normal upgrade, as shown next to the left upgrade button, or null when it can't be read.
+    /// </summary>
+    public static async Task<TimeSpan?> GetUpgradeDuration(this IPage page, BuildingEnums building)
+    {
+        var node = await IsEmptySite(page)
+            ? page.Locator($"#contract_building{(int)building} div.upgradeButtonsContainer .section1 .duration .value")
+            : page.Locator("div.upgradeButtonsContainer .section1 .duration .value");
+        if (await node.CountAsync() == 0) return null;
+        return ParseDuration(await node.First.InnerTextAsync());
+    }
+
+    /// <summary>
+    /// Parses Travian's "h:mm:ss" timer text. Hours can go past 24 and the text can carry
+    /// direction marks, so it is split by hand instead of using TimeSpan.Parse.
+    /// </summary>
+    public static TimeSpan? ParseDuration(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var digits = new string(text.Where(c => char.IsAsciiDigit(c) || c == ':').ToArray());
+        var parts = digits.Split(':');
+        if (parts.Length is < 2 or > 3 || parts.Any(x => x.Length == 0)) return null;
+
+        var numbers = parts.Select(int.Parse).ToArray();
+        return numbers.Length == 3
+            ? new TimeSpan(numbers[0], numbers[1], numbers[2])
+            : new TimeSpan(0, numbers[0], numbers[1]);
+    }
+
     private static async Task<bool> IsEmptySite(this IPage page)
     {
         var parentPanel = page.Locator("#build");

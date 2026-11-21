@@ -62,6 +62,9 @@ namespace MainCore.UI.Models.Input
         [Reactive]
         private int _completeImmediatelyTime;
 
+        [Reactive]
+        private int _specialUpgradeMinTime;
+
         public void Set(Dictionary<VillageSettingEnums, int> settings)
         {
             var tribe = (TribeEnums)settings.GetValueOrDefault(VillageSettingEnums.Tribe);
@@ -119,6 +122,7 @@ namespace MainCore.UI.Models.Input
 
             AutoClaimQuestEnable = settings.GetValueOrDefault(VillageSettingEnums.AutoClaimQuestEnable) == 1;
             CompleteImmediatelyTime = settings.GetValueOrDefault(VillageSettingEnums.CompleteImmediatelyTime);
+            SpecialUpgradeMinTime = settings.GetValueOrDefault(VillageSettingEnums.SpecialUpgradeMinTime);
         }
 
         public Dictionary<VillageSettingEnums, int> Get()
@@ -154,6 +158,7 @@ namespace MainCore.UI.Models.Input
 
             var autoClaimQuestEnable = AutoClaimQuestEnable ? 1 : 0;
             var completeImmediatelyTime = CompleteImmediatelyTime;
+            var specialUpgradeMinTime = SpecialUpgradeMinTime;
 
             var settings = new Dictionary<VillageSettingEnums, int>()
             {
@@ -193,6 +198,7 @@ namespace MainCore.UI.Models.Input
                 { VillageSettingEnums.AutoRefreshMax, autoRefreshMax },
                 { VillageSettingEnums.AutoClaimQuestEnable, autoClaimQuestEnable },
                 { VillageSettingEnums.CompleteImmediatelyTime, completeImmediatelyTime },
+                { VillageSettingEnums.SpecialUpgradeMinTime, specialUpgradeMinTime },
             };
             return settings;
         }

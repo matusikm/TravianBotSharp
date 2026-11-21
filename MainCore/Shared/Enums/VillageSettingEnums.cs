@@ -61,5 +61,8 @@
         AutoClaimQuestEnable,
 
         CompleteImmediatelyTime,
+
+        // Minimum build time (minutes) before the video upgrade button is used; 0 = always
+        SpecialUpgradeMinTime,
     }
 }

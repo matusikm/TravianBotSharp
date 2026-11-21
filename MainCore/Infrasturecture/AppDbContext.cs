@@ -176,6 +176,7 @@ namespace MainCore.Infrasturecture
 
             {VillageSettingEnums.AutoClaimQuestEnable, 0 },
             {VillageSettingEnums.CompleteImmediatelyTime, 20 },
+            {VillageSettingEnums.SpecialUpgradeMinTime, 0 },
         }.ToImmutableDictionary();
 
         private List<VillageSettingEnums> GetMissingVillageSettings()
