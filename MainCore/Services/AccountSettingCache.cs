@@ -32,6 +32,21 @@ public sealed class AccountSettingCache(IDbContextFactory<AppDbContext> contextF
         return System.Random.Shared.Next(min * multiplier, max * multiplier);
     }
 
+    /// <summary>
+    /// Like <see cref="Random"/>, but shaped like human timing: usually near the low end, sometimes higher,
+    /// and now and then a much longer pause (see <see cref="HumanTiming.SkewedDelay"/>).
+    /// </summary>
+    public int Skewed(AccountId accountId, AccountSettingEnums settingMin, AccountSettingEnums settingMax)
+    {
+        var settings = Load(accountId);
+        if (!settings.TryGetValue(settingMin, out var first) || !settings.TryGetValue(settingMax, out var second))
+        {
+            return 1000;
+        }
+
+        return HumanTiming.SkewedDelay(System.Random.Shared, first, second);
+    }
+
     /// <summary>Writes settings to the database and refreshes the cache for that account.</summary>
     public void Save(AccountId accountId, Dictionary<AccountSettingEnums, int> settings)
     {

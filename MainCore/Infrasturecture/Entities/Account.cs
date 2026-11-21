@@ -14,6 +14,12 @@ namespace MainCore.Infrasturecture.Entities
         public string Username { get; set; }
         public string Server { get; set; }
 
+        /// <summary>Browser language, for example en-US. Empty: pick it from the current IP's country.</summary>
+        public string Language { get; set; }
+
+        /// <summary>IANA time zone for the browser and the night window. Empty: look it up from the current IP.</summary>
+        public string TimeZone { get; set; }
+
         public AccountInfo Info { get; set; }
 
         public ICollection<AccountSetting> Settings { get; set; }

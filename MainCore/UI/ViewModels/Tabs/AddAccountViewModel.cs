@@ -185,8 +185,9 @@ namespace MainCore.UI.ViewModels.Tabs
 
         private Dictionary<AccountSettingEnums, int> LoadAccountDefaultSettings()
         {
-            var settings = AppDbContext.AccountDefaultSettings
-                .ToDictionary(x => x.Key, x => x.Value);
+            // Each new account gets its own timings, so accounts don't all share the same ranges.
+            // Values from the user's settings template still win.
+            var settings = HumanTiming.RandomizedAccountDefaults(Random.Shared);
 
             var path = _defaultTemplatePathStore.Get().AccountSettingsPath;
             if (string.IsNullOrWhiteSpace(path)) return settings;

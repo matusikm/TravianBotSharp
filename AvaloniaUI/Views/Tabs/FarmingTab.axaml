@@ -17,6 +17,7 @@
                 <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
                     <StackPanel Margin="0,20,0,0">
                         <uc:RangeInputUc x:Name="FarmInterval" Text="Start farm delay" Unit="s" />
+                        <uc:RangeInputUc x:Name="FarmIdle" Text="Idle gap between bursts" Unit="min" />
                         <CheckBox x:Name="UseStartAllCheckbox" Content="Use Start all button (ignore active settings)" />
                     </StackPanel>
                     <Button x:Name="SaveButton" ToolTip.Tip="Save" Margin="10" VerticalAlignment="Center">

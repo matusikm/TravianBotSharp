@@ -60,7 +60,8 @@ namespace MainCore.Shared.Behaviors
 
             var response = await Next(request, cancellationToken);
 
-            isIngamePage = await browser.CurrentPage.IsIngamePage();
+            // A task may close the browser (sleep, or log out and stop), so there may be no page left to read.
+            isIngamePage = browser.IsInitialized && await browser.CurrentPage.IsIngamePage();
             if (isIngamePage)
             {
                 await updateAccountInfoCommand.HandleAsync(new(browser), cancellationToken);

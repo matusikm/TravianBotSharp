@@ -66,11 +66,33 @@
                         <uc:RangeInputUc
                             x:Name="WorkTime"
                             Text="Work time"
-                            Unit="minutes" />
+                            Unit="hours" />
+                        <CheckBox x:Name="LogoutWhenWorkEnds" Content="When work time ends, log out and stop (otherwise sleep and continue)" />
                         <uc:RangeInputUc
                             x:Name="SleepTime"
                             Text="Sleep time"
                             Unit="minutes" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{DynamicResource Box}">
+                    <StackPanel>
+                        <TextBlock
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            FontWeight="Bold"
+                            Text="Night sleep"
+                            TextWrapping="Wrap" />
+                        <CheckBox x:Name="EnableNightSleep" Content="Sleep every night, in the account's time zone" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="NightSleepStart" Grid.Column="0" materialDesign:HintAssist.Hint="From (HH:mm)" Style="{DynamicResource MaterialDesignFloatingHintTextBox}" />
+                            <TextBox x:Name="NightSleepEnd" Grid.Column="2" materialDesign:HintAssist.Hint="To (HH:mm)" Style="{DynamicResource MaterialDesignFloatingHintTextBox}" />
+                        </Grid>
+                        <uc:AmountInputUc x:Name="NightSleepJitter" Text="Random shift each day, up to" Unit="minutes" />
                     </StackPanel>
                 </Border>
                 <Border Style="{DynamicResource Box}">
@@ -113,7 +135,9 @@
                             FontWeight="Bold"
                             Text="Chrome settings"
                             TextWrapping="Wrap" />
-                        <CheckBox x:Name="HeadlessChrome" Content="Use headless chrome" />
+                        <CheckBox x:Name="HeadlessChrome" Content="Use headless chrome (easier to detect, not recommended)" />
+                        <TextBox x:Name="TimeZoneTextBox" materialDesign:HintAssist.Hint="Time zone, e.g. Asia/Bangkok (empty: auto from current IP)" Style="{DynamicResource MaterialDesignFloatingHintTextBox}" />
+                        <TextBox x:Name="LanguageTextBox" materialDesign:HintAssist.Hint="Language, e.g. en-US (empty: auto from current IP)" Style="{DynamicResource MaterialDesignFloatingHintTextBox}" />
                     </StackPanel>
                 </Border>
             </StackPanel>
