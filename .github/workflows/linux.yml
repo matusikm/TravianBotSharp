@@ -39,15 +39,21 @@ jobs:
         run: |
           dotnet restore AvaloniaUI --locked-mode
           dotnet restore MainCore.Test --locked-mode
+          dotnet restore AvaloniaUI.Test --locked-mode
 
       - name: Build
         run: |
           dotnet build AvaloniaUI -c Release --no-restore
           dotnet build MainCore.Test -c Release --no-restore
+          dotnet build AvaloniaUI.Test -c Release --no-restore
 
       # Parser tests drive the runner's preinstalled Google Chrome through Patchright.
       - name: Test
         run: dotnet test --project MainCore.Test -c Release --no-build
+
+      # Opens every Avalonia view headlessly so a binding that throws on activation fails CI.
+      - name: Test views
+        run: dotnet test --project AvaloniaUI.Test -c Release --no-build
 
       - name: Publish linux-x64
         run: >
