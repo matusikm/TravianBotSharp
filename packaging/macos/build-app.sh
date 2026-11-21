@@ -48,12 +48,20 @@ iconutil -c icns "$iconset" -o "$app/Contents/Resources/TravianBotSharp.icns"
 
 sed "s/@VERSION@/$version/g" "$here/Info.plist" > "$app/Contents/Info.plist"
 
+# codesign treats every folder in Contents/MacOS as a nested bundle, so Patchright's driver
+# (.playwright) moves to Contents/Resources; Program.cs points PLAYWRIGHT_DRIVER_SEARCH_PATH there.
+mv "$app/Contents/MacOS/.playwright" "$app/Contents/Resources/.playwright"
+
 # Every Mach-O file needs a signature on Apple Silicon, and codesign treats every file in
 # Contents/MacOS as nested code, so sign each one (for .dll and other data files the signature
-# goes into extended attributes, which ditto keeps), then seal the bundle.
+# goes into extended attributes, which ditto keeps). The main executable is signed last,
+# together with the bundle.
 while IFS= read -r -d '' file; do
-  codesign --force --sign - --timestamp=none "$file" 2>&1 | grep -v "replacing existing signature" || true
-done < <(find "$app/Contents/MacOS" -type f -print0)
+  [[ $file == "$app/Contents/MacOS/TravianBotSharp" ]] && continue
+  if [[ $file == "$app/Contents/MacOS/"* ]] || file -b "$file" | grep -q "Mach-O"; then
+    codesign --force --sign - --timestamp=none "$file" 2>&1 | grep -v "replacing existing signature" || true
+  fi
+done < <(find "$app/Contents/MacOS" "$app/Contents/Resources/.playwright" -type f -print0)
 codesign --force --sign - --timestamp=none "$app"
 codesign --verify --deep --strict "$app"
 
