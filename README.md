@@ -35,6 +35,17 @@ These settings change when and how the bot acts, so its activity looks less mech
 - Click and task delays are usually near the low end of their range, sometimes higher, and now and then much longer. New accounts get their own randomised delay, farm and sleep ranges.
 - Clicks move the mouse to a random point inside the element; text is typed one key at a time.
 
+## Telegram notifications
+
+Each account can send you a Telegram message when a village gets attacked, when the bot pauses on its own (an error, or no internet for 30 minutes), or when a warehouse or granary reaches 90%. It's off until you turn it on.
+
+1. In Telegram, open **@BotFather**, send `/newbot` and copy the token it gives you.
+2. Open your new bot and press **Start** (for a group, add the bot and send a message there).
+3. In **Account settings > Telegram notifications**, paste the token, click **Find chat**, then **Send test**.
+4. Tick **Send Telegram notifications for this account**, choose the events, and **Save**.
+
+The token is stored encrypted, like the account passwords, and isn't included in settings exports. Messages go straight to Telegram, not through the account's proxy, and start with `[username @ server]` so one chat can serve several accounts. The bot reports each attack once while the village's attack flag stays on, and each full storage once until it drops to 80%. It can only notify while it's running.
+
 ## Tech specification
 
 - `MainCore`: the bot itself (Patchright-driven Chrome, database, tasks, view models).

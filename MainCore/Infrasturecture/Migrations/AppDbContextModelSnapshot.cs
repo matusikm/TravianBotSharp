@@ -69,6 +69,12 @@ namespace MainCore.Infrasturecture.Migrations
                     b.Property<string>("Server")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("TelegramBotToken")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TelegramChatId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("TimeZone")
                         .HasColumnType("TEXT");
 

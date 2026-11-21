@@ -5,6 +5,7 @@ using FluentValidation;
 using MainCore.Features.ClaimDailyQuest;
 using MainCore.Features.SetHeroPoint;
 using MainCore.Features.StartAdventure;
+using MainCore.Features.Telegram;
 using MainCore.Features.Update;
 using MainCore.UI.Models.Input;
 using MainCore.UI.Stores;
@@ -24,10 +25,14 @@ namespace MainCore.UI.ViewModels.Tabs
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
         private readonly TaskManager _taskManager;
         private readonly AccountSettingCache _settingCache;
+        private readonly TelegramNotifier _telegramNotifier;
+        private readonly ITelegramClient _telegramClient;
 
-        public AccountSettingViewModel(DialogService dialogService, IValidator<AccountSettingInput> accountsettingInputValidator, IDbContextFactory<AppDbContext> contextFactory, TaskManager taskManager, SelectedItemStore selectedItemStore, AccountSettingCache settingCache) : base(dialogService, selectedItemStore)
+        public AccountSettingViewModel(DialogService dialogService, IValidator<AccountSettingInput> accountsettingInputValidator, IDbContextFactory<AppDbContext> contextFactory, TaskManager taskManager, SelectedItemStore selectedItemStore, AccountSettingCache settingCache, TelegramNotifier telegramNotifier, ITelegramClient telegramClient) : base(dialogService, selectedItemStore)
         {
             _settingCache = settingCache;
+            _telegramNotifier = telegramNotifier;
+            _telegramClient = telegramClient;
             _accountsettingInputValidator = accountsettingInputValidator;
             _contextFactory = contextFactory;
             _taskManager = taskManager;
@@ -35,6 +40,77 @@ namespace MainCore.UI.ViewModels.Tabs
             LoadSettingsCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(AccountSettingInput.Set);
             ImportCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(AccountSettingInput.Set);
             LoadLocaleCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(SetLocale);
+            LoadTelegramCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(SetTelegram);
+            FindTelegramChatCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(SetTelegramChat);
+        }
+
+        private void SetTelegram((string Token, string ChatId) telegram)
+        {
+            AccountSettingInput.TelegramBotToken = telegram.Token;
+            AccountSettingInput.TelegramChatId = telegram.ChatId;
+        }
+
+        private void SetTelegramChat(string chatId)
+        {
+            if (!string.IsNullOrEmpty(chatId)) AccountSettingInput.TelegramChatId = chatId;
+        }
+
+        [ReactiveCommand(RunInBackground = true)]
+        private (string Token, string ChatId) LoadTelegram(AccountId accountId)
+        {
+            using var context = _contextFactory.CreateDbContext();
+            var account = context.Accounts
+                .Where(x => x.Id == accountId.Value)
+                .Select(x => new { x.TelegramBotToken, x.TelegramChatId })
+                .FirstOrDefault();
+            return (account?.TelegramBotToken ?? "", account?.TelegramChatId ?? "");
+        }
+
+        private void SaveTelegram(AccountId accountId, string token, string chatId)
+        {
+            using var context = _contextFactory.CreateDbContext();
+            var account = context.Accounts.FirstOrDefault(x => x.Id == accountId.Value);
+            if (account is null) return;
+
+            // Through the tracked entity, not ExecuteUpdate, so the token goes through its encryption converter.
+            account.TelegramBotToken = string.IsNullOrWhiteSpace(token) ? null : token.Trim();
+            account.TelegramChatId = string.IsNullOrWhiteSpace(chatId) ? null : chatId.Trim();
+            context.SaveChanges();
+        }
+
+        [ReactiveCommand(RunInBackground = true)]
+        private async Task SendTelegramTest()
+        {
+            var result = await _telegramNotifier.SendTestAsync(AccountId, AccountSettingInput.TelegramBotToken, AccountSettingInput.TelegramChatId);
+            if (result.IsSuccess)
+            {
+                await _dialogService.SendMessage("Information", "Test message sent. Check Telegram. Remember to save the settings.");
+            }
+            else
+            {
+                await _dialogService.SendMessage("Error", $"Telegram test failed: {string.Join("; ", result.Errors.Select(x => x.Message))}");
+            }
+        }
+
+        [ReactiveCommand(RunInBackground = true)]
+        private async Task<string> FindTelegramChat()
+        {
+            var result = await _telegramClient.FindChatsAsync(AccountSettingInput.TelegramBotToken);
+            if (result.IsFailed)
+            {
+                await _dialogService.SendMessage("Error", $"Can't read the bot's chats: {string.Join("; ", result.Errors.Select(x => x.Message))}");
+                return "";
+            }
+
+            var chat = result.Value.FirstOrDefault();
+            if (chat is null)
+            {
+                await _dialogService.SendMessage("Information", "No chats found. Open your bot in Telegram, press Start (or send it any message), then try again.");
+                return "";
+            }
+
+            await _dialogService.SendMessage("Information", $"Found chat \"{chat.Name}\" ({chat.Id}). Send a test message, then save.");
+            return chat.Id;
         }
 
         private void SetLocale((string TimeZone, string Language) locale)
@@ -47,6 +123,7 @@ namespace MainCore.UI.ViewModels.Tabs
         {
             await LoadSettingsCommand.Execute(accountId);
             await LoadLocaleCommand.Execute(accountId);
+            await LoadTelegramCommand.Execute(accountId);
         }
 
         [ReactiveCommand(RunInBackground = true)]
@@ -86,6 +163,7 @@ namespace MainCore.UI.ViewModels.Tabs
 
             SaveSetting(AccountId, settings);
             SaveLocale(AccountId, AccountSettingInput.TimeZone, AccountSettingInput.Language);
+            SaveTelegram(AccountId, AccountSettingInput.TelegramBotToken, AccountSettingInput.TelegramChatId);
             TriggerTask(AccountId, settings);
             await _dialogService.SendMessage("Information", "Settings saved. Time zone and language apply from the next login.");
         }
