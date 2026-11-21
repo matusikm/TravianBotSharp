@@ -5,6 +5,7 @@ using MainCore.Infrasturecture;
 using MainCore.Infrasturecture.Entities;
 using MainCore.Services;
 using MainCore.Shared.Enums;
+using MainCore.Shared.Errors;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,8 @@ public sealed class TimerManagerTests : IDisposable
     private readonly TaskManager _taskManager;
     private readonly TimerManager _timerManager;
     private readonly ServiceProvider _services;
+    private readonly INetworkProbe _networkProbe = Substitute.For<INetworkProbe>();
+    private volatile bool _online = true;
 
     public TimerManagerTests()
     {
@@ -47,6 +50,8 @@ public sealed class TimerManagerTests : IDisposable
             .AddSingleton<IHandler<SleepTask.Task, Result>>(_handler)
             .BuildServiceProvider();
 
+        _networkProbe.IsOnlineAsync(Arg.Any<AccountId>(), Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(_online));
+
         var rxQueue = new RxQueue(contextFactory);
         var settingCache = new AccountSettingCache(contextFactory);
         _taskManager = new TaskManager(rxQueue);
@@ -56,7 +61,8 @@ public sealed class TimerManagerTests : IDisposable
             rxQueue,
             settingCache,
             new ChromeManager(contextFactory, settingCache),
-            _time);
+            _time,
+            _networkProbe);
     }
 
     public void Dispose()
@@ -123,14 +129,128 @@ public sealed class TimerManagerTests : IDisposable
         await _handler.Called.Task.WaitAsync(RealTimeout, TestContext.Current.CancellationToken);
     }
 
+    [Fact]
+    public async Task WaitsForNetwork_WhenTaskFailsOffline_AndKeepsTheTask()
+    {
+        _online = false;
+        _handler.Response = Retry.Error;
+        var task = new SleepTask.Task(Account) { ExecuteAt = LocalNow };
+        _taskManager.Add(task);
+        _taskManager.SetStatus(Account, StatusEnums.Online);
+
+        _timerManager.Start(Account);
+
+        await WaitUntil(() => _taskManager.GetStatus(Account) == StatusEnums.WaitingForNetwork);
+        _handler.Calls.ShouldBe(1); // no retries while offline
+        _taskManager.GetTaskList(Account).ShouldContain(task);
+    }
+
+    [Fact]
+    public async Task WaitsForNetwork_WhenStopIsCausedByMissingInternet()
+    {
+        _online = false;
+        _handler.Response = Stop.Error;
+        _taskManager.Add(new SleepTask.Task(Account) { ExecuteAt = LocalNow });
+        _taskManager.SetStatus(Account, StatusEnums.Online);
+
+        _timerManager.Start(Account);
+
+        await WaitUntil(() => _taskManager.GetStatus(Account) == StatusEnums.WaitingForNetwork);
+    }
+
+    [Fact]
+    public async Task Pauses_OnStop_WhenInternetWorks()
+    {
+        _handler.Response = Stop.Error;
+        _taskManager.Add(new SleepTask.Task(Account) { ExecuteAt = LocalNow });
+        _taskManager.SetStatus(Account, StatusEnums.Online);
+
+        _timerManager.Start(Account);
+
+        await WaitUntil(() => _taskManager.GetStatus(Account) == StatusEnums.Paused);
+    }
+
+    [Fact]
+    public async Task ResumesAndRunsTaskAgain_WhenInternetIsBack()
+    {
+        _online = false;
+        _handler.Response = Retry.Error;
+        _taskManager.Add(new SleepTask.Task(Account) { ExecuteAt = LocalNow });
+        _taskManager.SetStatus(Account, StatusEnums.Online);
+        _timerManager.Start(Account);
+        await WaitUntil(() => _taskManager.GetStatus(Account) == StatusEnums.WaitingForNetwork);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+
+        _online = true;
+        _handler.Response = Result.Ok();
+        _time.Advance(TimerManager.NetworkCheckInterval);
+
+        await WaitUntil(() => _handler.Calls == 2);
+        await WaitUntil(() => _taskManager.GetTaskList(Account).Count == 0);
+        _taskManager.GetStatus(Account).ShouldBe(StatusEnums.Online);
+    }
+
+    [Fact]
+    public async Task Pauses_WhenInternetStaysDownTooLong()
+    {
+        _online = false;
+        _handler.Response = Retry.Error;
+        _taskManager.Add(new SleepTask.Task(Account) { ExecuteAt = LocalNow });
+        _taskManager.SetStatus(Account, StatusEnums.Online);
+        _timerManager.Start(Account);
+        await WaitUntil(() => _taskManager.GetStatus(Account) == StatusEnums.WaitingForNetwork);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+
+        _time.Advance(TimerManager.MaxNetworkWait);
+
+        await WaitUntil(() => _taskManager.GetStatus(Account) == StatusEnums.Paused);
+        _handler.Calls.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task UserPause_WhileWaitingForNetwork_IsNotUndone()
+    {
+        _online = false;
+        _handler.Response = Retry.Error;
+        _taskManager.Add(new SleepTask.Task(Account) { ExecuteAt = LocalNow });
+        _taskManager.SetStatus(Account, StatusEnums.Online);
+        _timerManager.Start(Account);
+        await WaitUntil(() => _taskManager.GetStatus(Account) == StatusEnums.WaitingForNetwork);
+
+        await _taskManager.StopCurrentTask(Account);
+        _online = true;
+        _time.Advance(TimerManager.NetworkCheckInterval);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+
+        _taskManager.GetStatus(Account).ShouldBe(StatusEnums.Paused);
+        _handler.Calls.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task RefreshBeforeRetry_SwallowsReloadErrors()
+    {
+        var browser = Substitute.For<IChromeBrowser>();
+        browser.Logger.Returns(Serilog.Core.Logger.None);
+        browser.Refresh().Returns<Task<Result>>(_ => throw new Microsoft.Playwright.PlaywrightException("net::ERR_INTERNET_DISCONNECTED"));
+
+        await Should.NotThrowAsync(() => TimerManager.RefreshBeforeRetry(browser));
+    }
+
     private sealed class RecordingHandler : IHandler<SleepTask.Task, Result>
     {
+        private int _calls;
+
         public TaskCompletionSource<SleepTask.Task> Called { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Result Response { get; set; } = Result.Ok();
+
+        public int Calls => Volatile.Read(ref _calls);
 
         public ValueTask<Result> HandleAsync(SleepTask.Task request, CancellationToken cancellationToken = default)
         {
+            Interlocked.Increment(ref _calls);
             Called.TrySetResult(request);
-            return ValueTask.FromResult(Result.Ok());
+            return ValueTask.FromResult(Response);
         }
     }
 }

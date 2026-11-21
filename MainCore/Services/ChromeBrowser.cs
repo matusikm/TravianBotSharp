@@ -155,8 +155,18 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
             Logger.Error("Refresh failed: main page is null");
             return Stop.Error;
         }
-        await _mainPage.ReloadAsync();
-        return Result.Ok();
+
+        try
+        {
+            await _mainPage.ReloadAsync();
+            return Result.Ok();
+        }
+        catch (Exception ex) when (ex is TimeoutException or PlaywrightException)
+        {
+            // Offline, Chrome can't reload and Playwright throws net::ERR_INTERNET_DISCONNECTED (or times out).
+            Logger.Warning("Reloading the page failed: {Message}", ex.Message);
+            return Retry.Error;
+        }
     }
 
     public async Task<Result> Navigate(string url)
@@ -175,6 +185,12 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
         catch (TimeoutException ex)
         {
             Logger.Error(ex, "Navigating to URL [{Url}] timed out.", url);
+            return Retry.Error;
+        }
+        catch (PlaywrightException ex)
+        {
+            // Network errors such as net::ERR_INTERNET_DISCONNECTED or net::ERR_NAME_NOT_RESOLVED.
+            Logger.Warning("Navigating to URL [{Url}] failed: {Message}", url, ex.Message);
             return Retry.Error;
         }
     }
