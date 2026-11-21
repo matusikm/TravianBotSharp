@@ -114,7 +114,9 @@ namespace MainCore.UI.ViewModels
         private static Version GetUnixChromeVersion()
         {
             var chromePath = UnixChromePaths.FirstOrDefault(File.Exists)
-                ?? throw new Exception("Google Chrome is not installed. On Ubuntu install the google-chrome-stable package from https://www.google.com/chrome/");
+                ?? throw new Exception(OperatingSystem.IsMacOS()
+                    ? "Google Chrome is not installed. Install it from https://www.google.com/chrome/ into the Applications folder"
+                    : "Google Chrome is not installed. On Ubuntu install the google-chrome-stable package from https://www.google.com/chrome/");
 
             string output;
             try

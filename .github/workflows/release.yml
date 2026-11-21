@@ -1,147 +1,284 @@
 name: Release
 
+# Builds TravianBotSharp for Linux (tarball + .deb), Windows (zip) and macOS (Apple Silicon and
+# Intel .app zips), smoke-tests each one and publishes them together as a GitHub Release.
+# Only the newest 5 releases are kept; older releases and their tags are deleted.
+#
+# It only runs by hand: Actions > Release > Run workflow, then pick patch, minor or major.
+# The version is the latest X.Y.Z tag with that part raised (0.0.9 + minor = 0.1.0).
+
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: "Which part of the version to raise. The new version is the latest X.Y.Z tag with this part increased."
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+      publish:
+        description: "Publish the GitHub Release. Untick for a dry run that only builds and smoke-tests the packages."
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  AVALONIA_TELEMETRY_OPTOUT: 1
+  KEEP_RELEASES: 5
+
 jobs:
-  Release:
-    runs-on: windows-2022
-    permissions:
-      contents: write
-    env:
-      DOTNET_INSTALL_DIR: "D:/tools/dotnet"
-      DOTNET_ROOT: "D:/tools/dotnet"
-      NUGET_PACKAGES: "D:/.nuget/packages"
+  version:
+    name: Get version
+    runs-on: ubuntu-26.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Cache dotnet
-        id: cache-dotnet
-        uses: actions/cache@v6
-        with:
-          path: ${{ env.DOTNET_INSTALL_DIR }}
-          key: dotnet-${{ runner.os }}-10.0.404
-          
+      - name: Get version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          latest=$(gh api "repos/$GH_REPO/tags" --paginate --jq '.[].name' |
+            sed -nE 's/^v?([0-9]+\.[0-9]+\.[0-9]+)$/\1/p' | sort -V | tail -n 1)
+          IFS=. read -r major minor patch <<< "${latest:-0.0.0}"
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+            *) echo "::error::Unknown bump '$BUMP'"; exit 1 ;;
+          esac
+          version="$major.$minor.$patch"
+          echo "Latest tag: ${latest:-none}, new version: $version"
+          echo "tag=$version" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: Build linux-x64
+    needs: version
+    runs-on: ubuntu-26.04
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Install dotnet
-        if: ${{ steps.cache-dotnet.outputs.cache-hit != 'true' }}
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.404
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
 
-      - name: Set installed/cached dotnet path [${{ env.DOTNET_INSTALL_DIR }}]
-        run: echo "${{ env.DOTNET_INSTALL_DIR }}" | Out-File -FilePath $ENV:GITHUB_PATH -Encoding utf8 -Append
-                  
-      - name: Checkout
-        uses: actions/checkout@v7      
-      
-      - name: Cache NuGet packages      
-        id: cache-nuget
-        uses: actions/cache@v6
+      - name: Restore
+        run: dotnet restore AvaloniaUI --locked-mode
+
+      - name: Publish linux-x64
+        run: dotnet publish AvaloniaUI -c Release -r linux-x64 --self-contained --no-restore -p:Version=$VERSION -o publish/linux-x64
+
+      - name: Build tarball and .deb
+        env:
+          DEB_MAINTAINER: "${{ github.repository_owner }} <${{ github.repository_owner }}@users.noreply.github.com>"
+          HOMEPAGE: ${{ github.server_url }}/${{ github.repository }}
+        run: packaging/linux/build-packages.sh "$VERSION" publish/linux-x64 dist
+
+      # Installs Google Chrome and both packages on a clean Ubuntu 26.04 and starts the app as a
+      # normal user, so a missing dependency or a data-folder mistake fails here and not on a PC.
+      - name: Smoke test on Ubuntu 26.04
+        run: docker run --rm -v "$PWD:/work:ro" -w /work ubuntu:26.04 packaging/linux/smoke-test.sh dist
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
         with:
-          path: ${{ env.NUGET_PACKAGES }}
-          key: nuget-${{ runner.os }}-${{ hashFiles('**/packages.lock.json') }}
-          
-      - name: Install dependencies
-        run: dotnet restore --locked-mode
-      
-      - name: Get next version
-        id: get_version
+          name: TBS-linux
+          path: |
+            dist/*.deb
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 3
+
+  windows:
+    name: Build win-x64
+    needs: version
+    runs-on: windows-2025
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    defaults:
+      run:
         shell: pwsh
-        env:
-          INPUT_FALLBACK: "1.0.0"
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install dotnet
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.404
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      - name: Restore
+        run: dotnet restore AvaloniaUI --locked-mode
+
+      - name: Publish win-x64
+        run: dotnet publish AvaloniaUI -c Release -r win-x64 --self-contained --no-restore -p:Version=$env:VERSION -o publish/TravianBotSharp
+
+      - name: Build zip
         run: |
-          $ErrorActionPreference = "Stop"
+          Remove-Item publish/TravianBotSharp/*.pdb
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path publish/TravianBotSharp -DestinationPath "dist/TravianBotSharp-$env:VERSION-win-x64.zip"
 
-          $owner, $repo = $env:GITHUB_REPOSITORY -split '/'
-          $query = 'query($owner: String!, $name: String!, $refPrefix: String!) { repository(owner: $owner, name: $name) { refs(refPrefix: $refPrefix, first: 1, orderBy: {field: TAG_COMMIT_DATE, direction: DESC}) { nodes { name } } } }'
-          $previousTag = gh api graphql -f query=$query -F owner=$owner -F name=$repo -F refPrefix=refs/tags/ --jq '.data.repository.refs.nodes[].name'
-          if ($LASTEXITCODE -ne 0) {
-              Write-Host "Failed to fetch latest tag via gh api" -ForegroundColor Red
-              exit 1
-          }
+      # Starts the app from the extracted zip with the runner's preinstalled Chrome.
+      - name: Smoke test
+        run: packaging/windows/smoke-test.ps1 "dist/TravianBotSharp-$env:VERSION-win-x64.zip"
 
-          if ([string]::IsNullOrWhiteSpace($previousTag)) {
-              Write-Host "No tag was found. Falling back to: $env:INPUT_FALLBACK" -ForegroundColor Yellow
-              $previousTag = $env:INPUT_FALLBACK
-          }
+      - name: Upload zip
+        uses: actions/upload-artifact@v7
+        with:
+          name: TBS-win-x64
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 3
 
-          $match = [regex]::Match($previousTag, '^(\d+)\.(\d+)\.\d+$')
-          if (-not $match.Success) {
-              Write-Host "Unsupported tag format: $previousTag" -ForegroundColor Red
-              exit 1
-          }
+  macos:
+    name: Build ${{ matrix.rid }}
+    needs: version
+    # Built on macOS because Apple Silicon needs signed binaries (ad hoc here, see build-app.sh).
+    runs-on: xcode-27
+    strategy:
+      matrix:
+        rid: [osx-arm64, osx-x64]
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-          $version = "$($match.Groups[1].Value).$([int]$match.Groups[2].Value + 1).0"
-          Write-Host "Previous tag: $previousTag, next minor version: $version" -ForegroundColor Green
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+      - name: Install dotnet
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.404
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
 
-      - name: Get changelog
-        id: changelog
-        shell: pwsh
+      - name: Restore
+        run: dotnet restore AvaloniaUI --locked-mode
+
+      - name: Publish ${{ matrix.rid }}
+        run: dotnet publish AvaloniaUI -c Release -r ${{ matrix.rid }} --self-contained --no-restore -p:Version=$VERSION -o publish/${{ matrix.rid }}
+
+      - name: Build app bundle
+        run: packaging/macos/build-app.sh "$VERSION" ${{ matrix.rid }} publish/${{ matrix.rid }} dist
+
+      # The runner (macOS 27, label xcode-27, public preview) is Apple Silicon, so only the arm64 build can be started here.
+      - name: Smoke test
+        if: matrix.rid == 'osx-arm64'
+        run: packaging/macos/smoke-test.sh "dist/TravianBotSharp-$VERSION-${{ matrix.rid }}.zip"
+
+      - name: Upload zip
+        uses: actions/upload-artifact@v7
+        with:
+          name: TBS-${{ matrix.rid }}
+          path: dist/*.zip
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    name: Publish release
+    needs: [version, linux, windows, macos]
+    if: inputs.publish
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.version.outputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v7
+        with:
+          path: dist
+          pattern: TBS-*
+          merge-multiple: true
+
+      - name: Checksums
         run: |
-          $ErrorActionPreference = "Stop"
-
-          $changelog = (Invoke-WebRequest -Uri "https://gist.githubusercontent.com/vinaghost/f7ce5204670e8194eea71a3961405c2f/raw/" -UseBasicParsing).Content.Trim()
-          $delimiter = "CHANGELOG_BODY_EOF_$([guid]::NewGuid().ToString('N'))"
-          "changelog<<$delimiter`n$changelog`n$delimiter" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Publish
-        run: dotnet publish WPFUI -c Release --no-restore --self-contained -p:PublishSingleFile=true -p:AssemblyVersion=${{ steps.get_version.outputs.version }}
-
-      - name: Archive release
-        shell: pwsh
-        env:
-          VERSION: ${{ steps.get_version.outputs.version }}
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          $name = "TBS-$env:VERSION"
-          $staging = Join-Path $env:RUNNER_TEMP $name
-          Copy-Item -Path "WPFUI\bin\Release\net10.0-windows10.0.19041.0\win-x64\publish" -Destination $staging -Recurse
-          Compress-Archive -Path $staging -DestinationPath "$name.zip"
+          cd dist
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
 
       - name: Create release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.get_version.outputs.version }}
-          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
         run: |
-          $ErrorActionPreference = "Stop"
+          notes="$RUNNER_TEMP/release-notes.md"
+          cat > "$notes" <<EOF
+          TBS drives Google Chrome, so install Google Chrome first (from https://www.google.com/chrome/).
 
-          $name = "TBS-$env:VERSION"
-          $notesFile = Join-Path $env:RUNNER_TEMP "release-notes.md"
-          @"
-          Please join our Discord server for more information: [https://discord.gg/mBa4f2K](https://discord.gg/mBa4f2K)
+          ## Windows
 
-          **Changelog**:
-          $env:CHANGELOG
-          "@ | Set-Content -Path $notesFile -Encoding utf8
+          Download \`TravianBotSharp-${VERSION}-win-x64.zip\`, extract it and run \`TravianBotSharp.exe\`.
+          The database, logs and Chrome profiles stay in the extracted folder; extract a newer zip over it to update.
+          Coming from the old Windows (WPF) version? Copy \`TBS.db\` and \`Data\` from the old folder into the new one.
 
-          gh release create $env:VERSION "$name.zip" --title $name --target main --notes-file $notesFile
+          ## macOS
 
-      - name: Notify Discord
-        shell: pwsh
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_BOT }}
-          VERSION: ${{ steps.get_version.outputs.version }}
-          CHANGELOG: ${{ steps.changelog.outputs.changelog }}
+          Download \`TravianBotSharp-${VERSION}-osx-arm64.zip\` for Apple Silicon (M1 and newer) or
+          \`TravianBotSharp-${VERSION}-osx-x64.zip\` for Intel Macs, open it and move **TravianBotSharp** to Applications.
+          The app is not notarized by Apple, so the first launch is blocked: open **System Settings > Privacy & Security**
+          and click **Open Anyway**, or run \`xattr -dr com.apple.quarantine /Applications/TravianBotSharp.app\`.
+          Data is kept in \`~/Library/Application Support/TravianBotSharp\`.
+
+          ## Ubuntu (26.04 or 24.04)
+
+          Chromium from snap does not work; use Google's package. Download \`travianbotsharp_${VERSION}_amd64.deb\`, then in the same folder run:
+
+          \`\`\`bash
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt install ./google-chrome-stable_current_amd64.deb ./travianbotsharp_${VERSION}_amd64.deb
+          \`\`\`
+
+          Start **TravianBotSharp** from the app menu, or run \`travianbotsharp\`. The database, logs and Chrome profiles
+          are kept in \`~/.local/share/TravianBotSharp\`. To update, install the newer .deb the same way.
+
+          Portable tarball: \`tar -xzf TravianBotSharp-${VERSION}-linux-x64.tar.gz -C ~\` and run \`~/TravianBotSharp/TravianBotSharp\`.
+          It keeps its data inside the extracted folder. To move to the .deb, copy \`TBS.db\` and \`Data/\` into \`~/.local/share/TravianBotSharp\`.
+
+          On Linux and macOS, passwords in \`TBS.db\` are encrypted with \`~/.config/TravianBotSharp/secret.key\`, so keep that file too.
+          Checksums are in \`SHA256SUMS\`.
+          EOF
+
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --title "TravianBotSharp $VERSION" \
+              --target "$GITHUB_SHA" \
+              --notes-file "$notes" \
+              --generate-notes
+          fi
+
+      # Keeps the newest $KEEP_RELEASES published releases; older ones are deleted with their tags.
+      - name: Delete old releases
         run: |
-          $description = @"
-          Version ``TBS-$env:VERSION``
-          Click [here](https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$env:VERSION) to download!
-
-          **Changelog**:
-          $env:CHANGELOG
-          "@
-
-          $payload = @{
-            content = "@everyone"
-            embeds  = @(
-              @{
-                title       = "New release"
-                description = $description
-                color       = 3066993
-              }
-            )
-          } | ConvertTo-Json -Depth 4
-
-          Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK -Method Post -ContentType "application/json; charset=utf-8" -Body $payload
+          gh release list --limit 1000 --exclude-drafts --json tagName,createdAt \
+            --jq "sort_by(.createdAt) | reverse | .[${KEEP_RELEASES}:] | .[].tagName" |
+          while IFS= read -r old; do
+            echo "Deleting release $old"
+            gh release delete "$old" --yes --cleanup-tag
+          done

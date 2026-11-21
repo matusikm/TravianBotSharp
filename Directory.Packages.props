@@ -1,8 +1,7 @@
 <Project>
   <!--
     Central package versions for every project. Keep families in step:
-    - ReactiveUI, ReactiveUI.WPF/Drawing/Testing and ReactiveUI.Avalonia share one ReactiveUI version.
-      CP.Extensions.Hosting.ReactiveUI.Wpf 6.1.1 is built against ReactiveUI 26 / Splat 21, which caps both.
+    - ReactiveUI, ReactiveUI.Testing and ReactiveUI.Avalonia share one ReactiveUI version.
     - Microsoft.EntityFrameworkCore.* and Microsoft.Extensions.* stay on 10.0.x to match the .NET 10 LTS
       target (their 11.x lines require net11.0).
   -->
@@ -48,14 +47,6 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.6" />
     <PackageVersion Include="Material.Icons.Avalonia" Version="3.0.2" />
     <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.6" />
-  </ItemGroup>
-
-  <!-- WPFUI -->
-  <ItemGroup>
-    <PackageVersion Include="CP.Extensions.Hosting.ReactiveUI.Wpf" Version="6.1.1" />
-    <PackageVersion Include="MaterialDesignThemes" Version="5.4.0" />
-    <PackageVersion Include="ReactiveUI.Drawing" Version="26.0.1" />
-    <PackageVersion Include="ReactiveUI.WPF" Version="26.0.1" />
   </ItemGroup>
 
   <!-- MainCore.Test -->

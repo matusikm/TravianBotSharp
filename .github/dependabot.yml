@@ -7,7 +7,7 @@ updates:
     open-pull-requests-limit: 5
     groups:
       reactiveui:
-        patterns: ["ReactiveUI*", "Splat*", "CP.Extensions.Hosting.ReactiveUI*"]
+        patterns: ["ReactiveUI*", "Splat*"]
       avalonia:
         patterns: ["Avalonia*", "Material.Icons.Avalonia"]
       microsoft:
@@ -22,7 +22,7 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "Serilog.Extensions.Hosting"
         update-types: ["version-update:semver-major"]
-      # CP.Extensions.Hosting.ReactiveUI.Wpf (WPFUI) caps ReactiveUI at 26 and Splat at 21.
+      # ReactiveUI 27 / Splat 22 need ReactiveUI.SourceGenerators changes in MainCore; upgrade them by hand.
       - dependency-name: "ReactiveUI*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "Splat*"
