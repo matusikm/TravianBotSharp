@@ -270,6 +270,7 @@ namespace MainCore.UI.ViewModels.UserControls
 
                 case StatusEnums.Online:
                 case StatusEnums.Paused:
+                case StatusEnums.WaitingForNetwork:
                 default:
                     break;
             }
@@ -301,6 +302,7 @@ namespace MainCore.UI.ViewModels.UserControls
                     break;
 
                 case StatusEnums.Online:
+                case StatusEnums.WaitingForNetwork:
                     await _taskManager.StopCurrentTask(accountId);
                     break;
 
@@ -338,6 +340,7 @@ namespace MainCore.UI.ViewModels.UserControls
                     return;
 
                 case StatusEnums.Online:
+                case StatusEnums.WaitingForNetwork:
                     await _dialogService.SendMessage("Information", "Account should be paused first");
                     return;
 
@@ -426,6 +429,7 @@ namespace MainCore.UI.ViewModels.UserControls
                     break;
 
                 case StatusEnums.Online:
+                case StatusEnums.WaitingForNetwork:
                     PauseText = "Pause";
                     break;
 

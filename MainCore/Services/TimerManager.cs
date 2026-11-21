@@ -22,17 +22,24 @@ public sealed class TimerManager
     /// </summary>
     public static readonly TimeSpan MaxIdleWait = TimeSpan.FromSeconds(30);
 
+    /// <summary>How often the connection is checked while an account waits for the internet to come back.</summary>
+    public static readonly TimeSpan NetworkCheckInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>How long an account waits for the internet before it gives up and pauses.</summary>
+    public static readonly TimeSpan MaxNetworkWait = TimeSpan.FromMinutes(30);
+
     private readonly TaskManager _taskManager;
     private readonly RxQueue _rxQueue;
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly AccountSettingCache _settingCache;
     private readonly ChromeManager _chromeManager;
     private readonly TimeProvider _timeProvider;
+    private readonly INetworkProbe _networkProbe;
 
     private static readonly ResiliencePropertyKey<ContextData> contextDataKey = new(nameof(ContextData));
     private readonly ResiliencePipeline<Result> _pipeline;
 
-    public TimerManager(TaskManager taskManager, IServiceScopeFactory serviceScopeFactory, RxQueue rxQueue, AccountSettingCache settingCache, ChromeManager chromeManager, TimeProvider timeProvider)
+    public TimerManager(TaskManager taskManager, IServiceScopeFactory serviceScopeFactory, RxQueue rxQueue, AccountSettingCache settingCache, ChromeManager chromeManager, TimeProvider timeProvider, INetworkProbe networkProbe)
     {
         _taskManager = taskManager;
         _serviceScopeFactory = serviceScopeFactory;
@@ -40,6 +47,7 @@ public sealed class TimerManager
         _settingCache = settingCache;
         _chromeManager = chromeManager;
         _timeProvider = timeProvider;
+        _networkProbe = networkProbe;
 
         static async ValueTask OnRetry(OnRetryArguments<Result> args)
         {
@@ -60,7 +68,7 @@ public sealed class TimerManager
                     browser.Logger.Warning("Task {TaskName} failed: {Message}", taskName, message);
                 }
             }
-            await browser.Refresh();
+            await RefreshBeforeRetry(browser);
             browser.Logger.Warning("{TaskName} will retry after {RetryDelay} (#{AttemptNumber} times)", taskName, args.RetryDelay, args.AttemptNumber + 1);
         }
 
@@ -70,15 +78,52 @@ public sealed class TimerManager
             Delay = TimeSpan.FromSeconds(30),
             UseJitter = true,
             BackoffType = DelayBackoffType.Exponential,
-            ShouldHandle = new PredicateBuilder<Result>()
-               .Handle<Exception>()
-               .HandleResult(static x => x.HasError<Retry>()),
+            ShouldHandle = ShouldRetry,
             OnRetry = OnRetry
         };
 
         _pipeline = new ResiliencePipelineBuilder<Result> { TimeProvider = timeProvider }
             .AddRetry(retryOptions)
             .Build();
+    }
+
+    /// <summary>
+    /// Reloads the page before the next attempt. A failed reload (offline: net::ERR_INTERNET_DISCONNECTED or a timeout)
+    /// must not escape: Polly doesn't catch errors thrown by its own retry hook, so one would end the retries and pause the account.
+    /// </summary>
+    public static async Task RefreshBeforeRetry(IChromeBrowser browser)
+    {
+        try
+        {
+            await browser.Refresh();
+        }
+        catch (Exception ex)
+        {
+            browser.Logger.Warning("Reloading the page before the retry failed: {Message}", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Retries errors and <see cref="Retry"/> results, but only while the internet works. Without it every attempt
+    /// fails the same way, so the account goes to <see cref="StatusEnums.WaitingForNetwork"/> instead.
+    /// </summary>
+    private async ValueTask<bool> ShouldRetry(RetryPredicateArguments<Result> args)
+    {
+        var outcome = args.Outcome;
+        var retryable = outcome.Exception switch
+        {
+            null => outcome.Result?.HasError<Retry>() == true,
+            OperationCanceledException => false,
+            _ => true,
+        };
+        if (!retryable) return false;
+
+        if (!args.Context.Properties.TryGetValue(contextDataKey, out var contextData)) return true;
+
+        if (await _networkProbe.IsOnlineAsync(contextData.Browser.AccountId, args.Context.CancellationToken)) return true;
+
+        contextData.NetworkDown = true;
+        return false;
     }
 
     public async Task Execute(AccountId accountId)
@@ -101,6 +146,7 @@ public sealed class TimerManager
         _rxQueue.Enqueue(new TasksModified(accountId));
 
         IChromeBrowser browser;
+        ContextData contextData;
         Outcome<Result> poliResult;
         try
         {
@@ -109,7 +155,7 @@ public sealed class TimerManager
             ///===========================================================///
             browser = _chromeManager.Get(accountId);
 
-            var contextData = new ContextData(task.Description, browser);
+            contextData = new ContextData(task.Description, browser);
 
             ///===========================================================///
             var resilienceContext = ResilienceContextPool.Shared.Get(cts.Token);
@@ -138,6 +184,18 @@ public sealed class TimerManager
 
             actor.CancellationTokenSource = null;
             cts.Dispose();
+        }
+
+        if (await IsNetworkLoss(accountId, poliResult, contextData))
+        {
+            // The task stays as it is and runs again once the internet is back.
+            actor.NetworkLostAt = Now;
+            if (actor.TrySetStatus(StatusEnums.Online, StatusEnums.WaitingForNetwork))
+            {
+                browser.Logger.Warning("No internet connection. Waiting for it to come back: checking every {Interval}, for up to {MaxWait}",
+                    NetworkCheckInterval.Humanize(), MaxNetworkWait.Humanize());
+            }
+            return;
         }
 
         if (poliResult.Exception is not null)
@@ -197,6 +255,48 @@ public sealed class TimerManager
         await Task.Delay(TimeSpan.FromMilliseconds(delay), _timeProvider);
     }
 
+    /// <summary>
+    /// True when the task failed because the internet is down. Retryable failures were already checked
+    /// before each retry; a <see cref="Stop"/> (for example Chrome's own "No internet" page) is checked here.
+    /// </summary>
+    private async Task<bool> IsNetworkLoss(AccountId accountId, Outcome<Result> outcome, ContextData contextData)
+    {
+        if (outcome.Exception is OperationCanceledException) return false;
+        if (contextData.NetworkDown) return true;
+        if (outcome.Result is null || !outcome.Result.HasError<Stop>()) return false;
+
+        return !await _networkProbe.IsOnlineAsync(accountId, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// While the account waits for the internet: when the connection works again, spread out the tasks
+    /// that fell due meanwhile and resume; after <see cref="MaxNetworkWait"/> give up and pause.
+    /// </summary>
+    private async Task CheckNetwork(AccountId accountId, AccountSchedulerActor actor, CancellationToken cancellationToken)
+    {
+        var logger = _chromeManager.Get(accountId).Logger;
+        var lostFor = Now - actor.NetworkLostAt;
+
+        if (await _networkProbe.IsOnlineAsync(accountId, cancellationToken))
+        {
+            var spread = actor.SpreadOverdueTasks(Now, Random.Shared);
+            if (actor.TrySetStatus(StatusEnums.WaitingForNetwork, StatusEnums.Online))
+            {
+                logger.Information("Internet is back after {LostFor}. Resuming; {Count} overdue tasks are spread out instead of running back to back",
+                    lostFor.Humanize(), spread);
+                _rxQueue.Enqueue(new TasksModified(accountId));
+            }
+            return;
+        }
+
+        if (lostFor < MaxNetworkWait) return;
+
+        if (actor.TrySetStatus(StatusEnums.WaitingForNetwork, StatusEnums.Paused))
+        {
+            logger.Error("No internet for {LostFor}. Bot is pausing; press Resume once the connection is back", lostFor.Humanize());
+        }
+    }
+
     /// <summary>Local time, as task due times are stored in local time.</summary>
     private DateTime Now => _timeProvider.GetLocalNow().DateTime;
 
@@ -206,7 +306,7 @@ public sealed class TimerManager
     /// </summary>
     private async Task WaitForWork(AccountSchedulerActor actor, Task changed, CancellationToken cancellationToken)
     {
-        var delay = MaxIdleWait;
+        var delay = actor.Status == StatusEnums.WaitingForNetwork ? NetworkCheckInterval : MaxIdleWait;
         if (actor.Status == StatusEnums.Online)
         {
             var nextDue = actor.Tasks.Select(x => (DateTime?)x.ExecuteAt).Min();
@@ -267,6 +367,10 @@ public sealed class TimerManager
                 var changed = actor.WaitForChangeAsync();
                 try
                 {
+                    if (actor.Status == StatusEnums.WaitingForNetwork)
+                    {
+                        await CheckNetwork(accountId, actor, token);
+                    }
                     await Execute(accountId);
                     await WaitForWork(actor, changed, token);
                 }
@@ -309,5 +413,9 @@ public sealed class TimerManager
         }
     }
 
-    public record ContextData(string TaskName, IChromeBrowser Browser);
+    public sealed record ContextData(string TaskName, IChromeBrowser Browser)
+    {
+        /// <summary>Set when a failed attempt found the internet down, so the account waits for it instead of pausing.</summary>
+        public bool NetworkDown { get; set; }
+    }
 }

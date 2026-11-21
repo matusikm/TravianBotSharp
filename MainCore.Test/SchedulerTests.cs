@@ -80,7 +80,8 @@ public class SchedulerTests
             rxQueue,
             settingCache,
             new ChromeManager(contextFactory, settingCache),
-            TimeProvider.System);
+            TimeProvider.System,
+            Substitute.For<INetworkProbe>());
 
         var task = new SleepTask.Task(Account) { ExecuteAt = DateTime.Now.AddSeconds(-1) };
         taskManager.Add(task);

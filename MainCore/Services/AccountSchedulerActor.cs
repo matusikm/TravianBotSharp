@@ -13,8 +13,13 @@ namespace MainCore.Services
         /// <summary>Lock that guards the task list. Re-entrant, so callers can group several calls.</summary>
         public object SyncRoot { get; } = new();
 
+        private readonly object _statusLock = new();
+
         public bool IsExecuting { get; set; } = false;
         public StatusEnums Status { get; set; } = StatusEnums.Offline;
+
+        /// <summary>When the account last lost its internet connection (local time).</summary>
+        public DateTime NetworkLostAt { get; set; }
         public CancellationTokenSource? CancellationTokenSource { get; set; }
 
         /// <summary>A snapshot of the current tasks. Safe to enumerate while the list changes.</summary>
@@ -116,9 +121,43 @@ namespace MainCore.Services
 
         public void SetStatus(StatusEnums status)
         {
-            Status = status;
+            lock (_statusLock)
+            {
+                Status = status;
+            }
             NotifyChanged();
             rxQueue.Enqueue(new StatusModified(accountId, status));
+        }
+
+        /// <summary>
+        /// Changes the status only if it is still <paramref name="expected"/>, so the scheduler never undoes
+        /// a Pause or Logout the user pressed meanwhile.
+        /// </summary>
+        public bool TrySetStatus(StatusEnums expected, StatusEnums status)
+        {
+            lock (_statusLock)
+            {
+                if (Status != expected) return false;
+                Status = status;
+            }
+            NotifyChanged();
+            rxQueue.Enqueue(new StatusModified(accountId, status));
+            return true;
+        }
+
+        /// <summary>
+        /// Moves the tasks that are due at <paramref name="now"/> apart, see <see cref="OverdueTasks.Spread"/>.
+        /// Returns how many tasks were moved.
+        /// </summary>
+        public int SpreadOverdueTasks(DateTime now, Random random)
+        {
+            int moved;
+            lock (SyncRoot)
+            {
+                moved = OverdueTasks.Spread(_tasks, now, random);
+            }
+            if (moved > 0) NotifyChanged();
+            return moved;
         }
     }
 }

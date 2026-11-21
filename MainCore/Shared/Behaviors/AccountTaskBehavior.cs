@@ -1,12 +1,17 @@
 using MainCore.Features.Login;
+using MainCore.Features.Sleep;
 using MainCore.Features.Update;
+using MainCore.Shared.Commands;
 
 namespace MainCore.Shared.Behaviors
 {
     public sealed class AccountTaskBehavior<TRequest, TResponse>(
         ILogger logger,
+        IDbContextFactory<AppDbContext> contextFactory,
         ChromeManager chromeManager,
         TaskManager taskManager,
+        INetworkProbe networkProbe,
+        OpenBrowserCommand.Handler openBrowserCommand,
         UpdateAccountInfoCommand.Handler updateAccountInfoCommand,
         UpdateDailyQuestCommand.Handler updateDailyQuestCommand,
         UpdateHeroLevelUpCommand.Handler updateHeroLevelUpCommand,
@@ -24,8 +29,28 @@ namespace MainCore.Shared.Behaviors
             var accountId = request.AccountId;
             var cacheExecuteAt = request.ExecuteAt;
             var browser = chromeManager.Get(accountId);
+
+            if (!browser.IsInitialized)
+            {
+                // The sleep task closes and reopens the browser itself.
+                if (request is SleepTask.Task) return await Next(request, cancellationToken);
+
+                // Chrome is closed while the account runs, for example after a wake-up failed without internet.
+                var opened = await OpenBrowser(browser, cancellationToken);
+                if (opened.IsFailed) return (TResponse)opened;
+            }
+
             var isIngamePage = await browser.CurrentPage.IsIngamePage();
             request.ExecuteAt = cacheExecuteAt;
+
+            if (!isIngamePage && !await browser.CurrentPage.IsLoginPage())
+            {
+                // Chrome's own "No internet" page after an outage, or a page that never finished loading.
+                logger.Warning("The page is neither the game nor the login page. Opening the server again");
+                var navigated = await browser.Navigate(GetServer(accountId));
+                if (navigated.IsFailed) return (TResponse)navigated;
+                isIngamePage = await browser.CurrentPage.IsIngamePage();
+            }
 
             if (!isIngamePage)
             {
@@ -71,6 +96,28 @@ namespace MainCore.Shared.Behaviors
             }
 
             return response;
+        }
+
+        private async Task<Result> OpenBrowser(IChromeBrowser browser, CancellationToken cancellationToken)
+        {
+            // Opening offline would fall back to this computer's time zone and land on an error page.
+            if (!await networkProbe.IsOnlineAsync(browser.AccountId, cancellationToken))
+            {
+                logger.Warning("Chrome is closed and there is no internet to open it");
+                return Retry.Error;
+            }
+
+            logger.Information("Chrome is closed. Opening it again");
+            return await openBrowserCommand.HandleAsync(new(browser, IgnoreSleepTime: true), cancellationToken);
+        }
+
+        private string GetServer(AccountId accountId)
+        {
+            using var context = contextFactory.CreateDbContext();
+            return context.Accounts
+                .Where(x => x.Id == accountId.Value)
+                .Select(x => x.Server)
+                .First();
         }
     }
 }
