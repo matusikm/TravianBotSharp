@@ -6,7 +6,7 @@ public static class Parsers
 
     public static async Task<List<HeroItemDto>> GetHeroItems(this IPage page)
     {
-        var rawItemsData = await page.EvaluateAsync<RawHeroItemDto[]>(@"() => {
+        var rawItemsData = await page.EvaluateJsonAsync<RawHeroItemDto[]>(@"() => {
             const cells = document.querySelectorAll('div.heroItems div.heroItem:not(.empty)');
             const result = [];
             const itemRegex = /item(\d+)/;
@@ -62,7 +62,7 @@ public static class Parsers
 
     public static async Task<(AccountInfoDto AccountInfo, List<VillageDto> Villages)> GetAccountData(this IPage page)
     {
-        var data = await page.EvaluateAsync<AccountDataDto>(@"() => {
+        var data = await page.EvaluateJsonAsync<AccountDataDto>(@"() => {
             const goldEl = document.querySelector('div.ajaxReplaceableGoldAmount');
             const silverEl = document.querySelector('div.ajaxReplaceableSilverAmount');
             const editButton = document.querySelector('#sidebarBoxLinklist a.edit.round');
@@ -128,7 +128,7 @@ public static class Parsers
 
     public static async Task<BuildingDataDto> GetBuildingData(this IPage page)
     {
-        var data = await page.EvaluateAsync<BuildingDataDto>(@"() => {
+        var data = await page.EvaluateJsonAsync<BuildingDataDto>(@"() => {
             const isDorf1 = document.querySelector('.village1') !== null;
             const isDorf2 = document.querySelector('.village2') !== null;
             const buildingsResult = [];
