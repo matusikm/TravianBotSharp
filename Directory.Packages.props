@@ -22,17 +22,17 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
     <PackageVersion Include="Patchright" Version="1.64.1" />
     <PackageVersion Include="Polly" Version="8.9.1" />
-    <PackageVersion Include="ReactiveUI" Version="26.0.1" />
-    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="7.0.0" />
+    <PackageVersion Include="ReactiveUI" Version="27.0.1" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="7.1.0" />
     <PackageVersion Include="Serilog" Version="4.4.0" />
     <PackageVersion Include="Serilog.Expressions" Version="5.0.0" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="Serilog.Sinks.Map" Version="2.0.0" />
     <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.37.0.15768" />
-    <PackageVersion Include="Splat" Version="21.0.0" />
-    <PackageVersion Include="Splat.Drawing" Version="21.0.0" />
-    <PackageVersion Include="Splat.Microsoft.Extensions.DependencyInjection" Version="21.0.0" />
+    <PackageVersion Include="Splat" Version="22.0.1" />
+    <PackageVersion Include="Splat.Drawing" Version="22.0.1" />
+    <PackageVersion Include="Splat.Microsoft.Extensions.DependencyInjection" Version="22.0.1" />
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
     <PackageVersion Include="StronglyTypedId" Version="1.0.0-beta06" />
   </ItemGroup>
@@ -46,7 +46,7 @@
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.6" />
     <PackageVersion Include="Material.Icons.Avalonia" Version="3.0.2" />
-    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.6" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.7" />
   </ItemGroup>
 
   <!-- MainCore.Test -->
@@ -57,7 +57,7 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="NSubstitute.Analyzers.CSharp" Version="1.0.17" />
-    <PackageVersion Include="ReactiveUI.Testing" Version="26.0.1" />
+    <PackageVersion Include="ReactiveUI.Testing" Version="27.0.1" />
     <PackageVersion Include="Serilog.Sinks.TestCorrelator" Version="4.0.2" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.5" />

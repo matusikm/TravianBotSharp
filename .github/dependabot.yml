@@ -22,11 +22,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "Serilog.Extensions.Hosting"
         update-types: ["version-update:semver-major"]
-      # ReactiveUI 27 / Splat 22 need ReactiveUI.SourceGenerators changes in MainCore; upgrade them by hand.
-      - dependency-name: "ReactiveUI*"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "Splat*"
-        update-types: ["version-update:semver-major"]
       # 1.0.0-beta07+ changed the attribute API used in AppDbContext.
       - dependency-name: "StronglyTypedId"
 
