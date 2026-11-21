@@ -34,6 +34,14 @@ namespace AvaloniaUI.Views.Tabs
                 this.Bind(ViewModel, vm => vm.AccountSettingInput.EnableAutoStartAdventure, v => v.EnableAutoStartAdventure.IsChecked).DisposeWith(d);
                 this.Bind(ViewModel, vm => vm.AccountSettingInput.EnableAutoClaimDailyQuest, v => v.EnableAutoClaimDailyQuest.IsChecked).DisposeWith(d);
                 this.Bind(ViewModel, vm => vm.AccountSettingInput.EnableAutoSetHeroPoint, v => v.EnableAutoSetHeroPoint.IsChecked).DisposeWith(d);
+
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.LogoutWhenWorkEnds, v => v.LogoutWhenWorkEnds.IsChecked).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.EnableNightSleep, v => v.EnableNightSleep.IsChecked).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.NightSleepStart, v => v.NightSleepStart.Text).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.NightSleepEnd, v => v.NightSleepEnd.Text).DisposeWith(d);
+                this.OneWayBind(ViewModel, vm => vm.AccountSettingInput.NightSleepJitter, v => v.NightSleepJitter.ViewModel).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.TimeZone, v => v.TimeZoneTextBox.Text).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.Language, v => v.LanguageTextBox.Text).DisposeWith(d);
             });
         }
     }

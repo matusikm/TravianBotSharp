@@ -67,6 +67,13 @@ namespace MainCore.Infrasturecture
             {AccountSettingEnums.EnableAutoStartAdventure, 0 },
             {AccountSettingEnums.EnableAutoClaimDailyQuest, 0 },
             {AccountSettingEnums.EnableAutoSetHeroPoint, 0 },
+            {AccountSettingEnums.WorkEndAction, (int)WorkEndActionEnums.SleepAndContinue },
+            {AccountSettingEnums.EnableNightSleep, 1 },
+            {AccountSettingEnums.NightSleepStart, 23 * 60 + 30 },
+            {AccountSettingEnums.NightSleepEnd, 7 * 60 },
+            {AccountSettingEnums.NightSleepJitter, 45 },
+            {AccountSettingEnums.FarmIdleMin, 9 },
+            {AccountSettingEnums.FarmIdleMax, 63 },
         }.ToImmutableDictionary();
 
         private List<AccountSettingEnums> GetMissingAccountSettings()

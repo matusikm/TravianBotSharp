@@ -12,6 +12,12 @@ public class ChromeSetting
     public string? ProxyUsername { get; set; }
     public string? ProxyPassword { get; set; }
     public bool IsHeadless { get; set; }
+
+    /// <summary>IANA time zone the browser reports, for example Asia/Bangkok. Null keeps this machine's zone.</summary>
+    public string? TimeZoneId { get; set; }
+
+    /// <summary>Browser language, for example en-US. Null keeps Chrome's default.</summary>
+    public string? Locale { get; set; }
 }
 
 public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBrowser
@@ -38,7 +44,7 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
 
     public async Task DelayClick()
     {
-        var delay = settingCache.Random(AccountId, AccountSettingEnums.ClickDelayMin, AccountSettingEnums.ClickDelayMax);
+        var delay = settingCache.Skewed(AccountId, AccountSettingEnums.ClickDelayMin, AccountSettingEnums.ClickDelayMax);
         await Task.Delay(delay);
     }
 
@@ -57,13 +63,15 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
             },
             ViewportSize = ViewportSize.NoViewport,
             UserAgent = string.IsNullOrEmpty(setting.UserAgent) ? null : setting.UserAgent,
+            TimezoneId = string.IsNullOrEmpty(setting.TimeZoneId) ? null : setting.TimeZoneId,
+            Locale = string.IsNullOrEmpty(setting.Locale) ? null : setting.Locale,
+            // No --disable-gpu: it makes WebGL report a software renderer, a common VM and bot fingerprint.
             Args =
             [
                 "--no-default-browser-check",
                 "--no-first-run",
                 "--ash-no-nudges",
                 "--mute-audio",
-                "--disable-gpu",
                 "--disable-search-engine-choice-screen",
                 "--webrtc-ip-handling-policy=disable_non_proxied_udp",
                 "--force-webrtc-ip-handling-policy",
@@ -71,6 +79,12 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
         });
         IsHeadless = setting.IsHeadless;
         _mainPage = await _browser.NewPageAsync();
+
+        if (setting.IsHeadless)
+        {
+            Logger.Warning("Headless Chrome is easier to detect than a normal window. On Linux without a screen, run a normal window under Xvfb instead");
+        }
+        await WarnOnUserAgentMismatch(setting.UserAgent);
 
         var firstPage = _browser.Pages.Count > 1 ? _browser.Pages[0] : null;
         if (firstPage != null && firstPage.Url == "about:blank")
@@ -165,7 +179,7 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
         }
     }
 
-    public async Task<Result> Click(ILocator locator, [CallerArgumentExpression(nameof(locator))] string? expression = null)
+    public async Task<Result> Click(ILocator locator, float? timeout = null, [CallerArgumentExpression(nameof(locator))] string? expression = null)
     {
         if (_mainPage is null)
         {
@@ -174,7 +188,7 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
         }
         try
         {
-            await locator.ClickAsync();
+            await HumanClick(_mainPage, locator, timeout);
             await DelayClick();
             return Result.Ok();
         }
@@ -183,6 +197,27 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
             Logger.Error(ex, "Clicking locator [{Expression}] timed out.", expression);
             return Retry.Error;
         }
+    }
+
+    /// <summary>
+    /// Moves the mouse to a random point inside the element in several steps, pauses briefly, then clicks there,
+    /// instead of jumping to the element's exact centre. Falls back to a plain click when the element has no box.
+    /// </summary>
+    private static async Task HumanClick(IPage page, ILocator locator, float? timeout)
+    {
+        await locator.ScrollIntoViewIfNeededAsync(new() { Timeout = timeout });
+        var box = await locator.BoundingBoxAsync(new() { Timeout = timeout });
+        if (box is null)
+        {
+            await locator.ClickAsync(new() { Timeout = timeout });
+            return;
+        }
+
+        var random = System.Random.Shared;
+        var (x, y) = HumanTiming.PointInBox(random, box.Width, box.Height);
+        await page.Mouse.MoveAsync(box.X + x, box.Y + y, new() { Steps = random.Next(8, 26) });
+        await Task.Delay(HumanTiming.SkewedDelay(random, 40, 220));
+        await locator.ClickAsync(new() { Position = new() { X = x, Y = y }, Timeout = timeout });
     }
 
     public async Task<Result> Input(ILocator locator, string content, [CallerArgumentExpression(nameof(locator))] string? expression = null)
@@ -194,7 +229,7 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
         }
         try
         {
-            await locator.FillAsync(content);
+            await HumanType(_mainPage, locator, content);
             await DelayClick();
             return Result.Ok();
         }
@@ -202,6 +237,49 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
         {
             Logger.Error(ex, "Inputting into locator [{Expression}] timed out.", expression);
             return Retry.Error;
+        }
+    }
+
+    /// <summary>
+    /// Clicks into the field, selects what is there and types the new text one key at a time with uneven pauses,
+    /// instead of setting the whole value at once.
+    /// </summary>
+    private static async Task HumanType(IPage page, ILocator locator, string content)
+    {
+        await HumanClick(page, locator, null);
+        await page.Keyboard.PressAsync("ControlOrMeta+A");
+        await Task.Delay(HumanTiming.KeyDelay(System.Random.Shared));
+
+        if (content.Length == 0)
+        {
+            await page.Keyboard.PressAsync("Backspace");
+            return;
+        }
+
+        foreach (var character in content)
+        {
+            await page.Keyboard.TypeAsync(character.ToString());
+            await Task.Delay(HumanTiming.KeyDelay(System.Random.Shared));
+        }
+    }
+
+    private async Task WarnOnUserAgentMismatch(string userAgent)
+    {
+        if (string.IsNullOrEmpty(userAgent) || _mainPage is null) return;
+
+        try
+        {
+            var installedVersion = await _mainPage.EvaluateAsync<string?>(
+                "() => navigator.userAgentData?.brands?.find(b => b.brand === 'Google Chrome')?.version ?? null");
+            if (!UserAgentCheck.Matches(userAgent, installedVersion))
+            {
+                Logger.Warning("The custom User-Agent claims Chrome {Claimed} but the installed Chrome is {Installed}. Sites can see both; leave the User-Agent empty or update it",
+                    UserAgentCheck.ChromeMajorVersion(userAgent)?.ToString() ?? "unknown", installedVersion ?? "unknown");
+            }
+        }
+        catch (PlaywrightException ex)
+        {
+            Logger.Debug(ex, "Could not compare User-Agent with installed Chrome");
         }
     }
 

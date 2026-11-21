@@ -33,6 +33,7 @@ namespace AvaloniaUI.Views.Tabs
 
                 this.Bind(ViewModel, vm => vm.AccountSettingInput.UseStartAllButton, v => v.UseStartAllCheckbox.IsChecked).DisposeWith(d);
                 this.OneWayBind(ViewModel, vm => vm.AccountSettingInput.FarmInterval, v => v.FarmInterval.ViewModel).DisposeWith(d);
+                this.OneWayBind(ViewModel, vm => vm.AccountSettingInput.FarmIdle, v => v.FarmIdle.ViewModel).DisposeWith(d);
 
                 this.Bind(ViewModel, vm => vm.ActiveText, v => v.ActiveButton.Content).DisposeWith(d);
             });

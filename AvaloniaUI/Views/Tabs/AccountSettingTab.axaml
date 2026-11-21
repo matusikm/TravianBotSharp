@@ -22,8 +22,20 @@
                 <Border Classes="Box">
                     <StackPanel>
                         <TextBlock Classes="SectionHeader" Text="Activity settings" />
-                        <uc:RangeInputUc x:Name="WorkTime" Text="Work time" Unit="minutes" />
+                        <uc:RangeInputUc x:Name="WorkTime" Text="Work time" Unit="hours" />
+                        <CheckBox x:Name="LogoutWhenWorkEnds" Content="When work time ends, log out and stop (otherwise sleep and continue)" />
                         <uc:RangeInputUc x:Name="SleepTime" Text="Sleep time" Unit="minutes" />
+                    </StackPanel>
+                </Border>
+                <Border Classes="Box">
+                    <StackPanel>
+                        <TextBlock Classes="SectionHeader" Text="Night sleep" />
+                        <CheckBox x:Name="EnableNightSleep" Content="Sleep every night, in the account's time zone" />
+                        <Grid ColumnDefinitions="*,10,*">
+                            <TextBox x:Name="NightSleepStart" Grid.Column="0" PlaceholderText="From (HH:mm)" UseFloatingPlaceholder="True" Margin="0,2" />
+                            <TextBox x:Name="NightSleepEnd" Grid.Column="2" PlaceholderText="To (HH:mm)" UseFloatingPlaceholder="True" Margin="0,2" />
+                        </Grid>
+                        <uc:AmountInputUc x:Name="NightSleepJitter" Text="Random shift each day, up to" Unit="minutes" />
                     </StackPanel>
                 </Border>
                 <Border Classes="Box">
@@ -45,7 +57,9 @@
                 <Border Classes="Box">
                     <StackPanel>
                         <TextBlock Classes="SectionHeader" Text="Chrome settings" />
-                        <CheckBox x:Name="HeadlessChrome" Content="Use headless chrome" />
+                        <CheckBox x:Name="HeadlessChrome" Content="Use headless chrome (easier to detect, not recommended)" />
+                        <TextBox x:Name="TimeZoneTextBox" PlaceholderText="Time zone, e.g. Asia/Bangkok (empty: auto from current IP)" UseFloatingPlaceholder="True" Margin="0,2" />
+                        <TextBox x:Name="LanguageTextBox" PlaceholderText="Language, e.g. en-US (empty: auto from current IP)" UseFloatingPlaceholder="True" Margin="0,2" />
                     </StackPanel>
                 </Border>
             </StackPanel>

@@ -193,7 +193,7 @@ public sealed class TimerManager
             _taskManager.Remove(accountId, task);
         }
 
-        var delay = _settingCache.Random(accountId, AccountSettingEnums.TaskDelayMin, AccountSettingEnums.TaskDelayMax);
+        var delay = _settingCache.Skewed(accountId, AccountSettingEnums.TaskDelayMin, AccountSettingEnums.TaskDelayMax);
         await Task.Delay(TimeSpan.FromMilliseconds(delay), _timeProvider);
     }
 

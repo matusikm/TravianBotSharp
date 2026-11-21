@@ -7,6 +7,7 @@ public sealed partial class StartFarmListTask(
     IDbContextFactory<AppDbContext> contextFactory,
     ILogger logger,
     ChromeManager chromeManager,
+    FarmBurstPlanner farmBurstPlanner,
     ToFarmListPageCommand.Handler toFarmListPageCommand,
     StartActiveFarmlistCommand.Handler startActiveFarmlistCommand,
     StartAllFarmlistCommand.Handler startAllFarmlistCommand
@@ -19,6 +20,12 @@ public sealed partial class StartFarmListTask(
 
     private async ValueTask<Result> HandleAsync(Task task, CancellationToken cancellationToken)
     {
+        if (FarmBurst.ShouldSkip(Random.Shared))
+        {
+            logger.Information("Skipping this farm cycle");
+            return ReSchedule.Error(farmBurstPlanner.NextRun(task.AccountId));
+        }
+
         var browser = chromeManager.Get(task.AccountId);
         Result result;
         result = await toFarmListPageCommand.HandleAsync(new(browser), cancellationToken);
@@ -42,7 +49,7 @@ public sealed partial class StartFarmListTask(
             if (result.IsFailed) return result;
         }
 
-        return ReSchedule.Error(GetNextExecuteTime(task.AccountId));
+        return ReSchedule.Error(farmBurstPlanner.NextRun(task.AccountId));
     }
 
     private bool UseStartAllButton(AccountId accountId)
@@ -61,17 +68,5 @@ public sealed partial class StartFarmListTask(
             .Select(x => new FarmId(x.Id))
             .ToList();
         return farmLists;
-    }
-
-    private DateTime GetNextExecuteTime(AccountId accountId)
-    {
-        using var context = contextFactory.CreateDbContext();
-
-        var seconds = context.ByName(
-            accountId,
-            AccountSettingEnums.FarmIntervalMin,
-            AccountSettingEnums.FarmIntervalMax);
-        var nextExecute = DateTime.Now.AddSeconds(seconds);
-        return nextExecute;
     }
 }

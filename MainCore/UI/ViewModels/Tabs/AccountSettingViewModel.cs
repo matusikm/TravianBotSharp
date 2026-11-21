@@ -34,11 +34,42 @@ namespace MainCore.UI.ViewModels.Tabs
 
             LoadSettingsCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(AccountSettingInput.Set);
             ImportCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(AccountSettingInput.Set);
+            LoadLocaleCommand.ObserveOn(RxSchedulers.MainThreadScheduler).Subscribe(SetLocale);
+        }
+
+        private void SetLocale((string TimeZone, string Language) locale)
+        {
+            AccountSettingInput.TimeZone = locale.TimeZone;
+            AccountSettingInput.Language = locale.Language;
         }
 
         protected override async Task Load(AccountId accountId)
         {
             await LoadSettingsCommand.Execute(accountId);
+            await LoadLocaleCommand.Execute(accountId);
+        }
+
+        [ReactiveCommand(RunInBackground = true)]
+        private (string TimeZone, string Language) LoadLocale(AccountId accountId)
+        {
+            using var context = _contextFactory.CreateDbContext();
+            var account = context.Accounts
+                .Where(x => x.Id == accountId.Value)
+                .Select(x => new { x.TimeZone, x.Language })
+                .FirstOrDefault();
+            return (account?.TimeZone ?? "", account?.Language ?? "");
+        }
+
+        private void SaveLocale(AccountId accountId, string timeZone, string language)
+        {
+            var zone = string.IsNullOrWhiteSpace(timeZone) ? null : timeZone.Trim();
+            var lang = string.IsNullOrWhiteSpace(language) ? null : language.Trim();
+            using var context = _contextFactory.CreateDbContext();
+            context.Accounts
+                .Where(x => x.Id == accountId.Value)
+                .ExecuteUpdate(x => x
+                    .SetProperty(a => a.TimeZone, zone)
+                    .SetProperty(a => a.Language, lang));
         }
 
         [ReactiveCommand(RunInBackground = true)]
@@ -54,8 +85,9 @@ namespace MainCore.UI.ViewModels.Tabs
             var settings = AccountSettingInput.Get();
 
             SaveSetting(AccountId, settings);
+            SaveLocale(AccountId, AccountSettingInput.TimeZone, AccountSettingInput.Language);
             TriggerTask(AccountId, settings);
-            await _dialogService.SendMessage("Information", "Settings saved.");
+            await _dialogService.SendMessage("Information", "Settings saved. Time zone and language apply from the next login.");
         }
 
         [ReactiveCommand(RunInBackground = true)]

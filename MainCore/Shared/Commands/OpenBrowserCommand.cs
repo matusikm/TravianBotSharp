@@ -5,6 +5,8 @@ namespace MainCore.Shared.Commands;
 [Handler]
 public sealed partial class OpenBrowserCommand(
     IDbContextFactory<AppDbContext> contextFactory,
+    AccountTimeZoneStore timeZoneStore,
+    TimeProvider timeProvider,
     ILogger logger)
 {
     public sealed record Command(IChromeBrowser Browser, bool IgnoreSleepTime = false) : IBrowserCommand
@@ -22,7 +24,11 @@ public sealed partial class OpenBrowserCommand(
 
         var access = result.Value;
 
-        var (username, server, headless) = GetAccount(accountId);
+        var (username, server, headless, timeZone, language) = GetAccount(accountId);
+        var locale = await ResolveLocale(access, timeZone, language);
+        timeZoneStore.Set(accountId, locale.TimeZone);
+        logger.Information("Browser time zone {TimeZone}, language {Language}", locale.TimeZoneId, locale.Locale ?? "Chrome default");
+
         var chromeSetting = new ChromeSetting()
         {
             ProfilePath = GetProfilePath(server, username),
@@ -32,6 +38,8 @@ public sealed partial class OpenBrowserCommand(
             ProxyUsername = access.ProxyUsername,
             ProxyPassword = access.ProxyPassword,
             IsHeadless = headless,
+            TimeZoneId = locale.TimeZoneId,
+            Locale = locale.Locale,
         };
 
         await browser.Setup(chromeSetting);
@@ -48,7 +56,7 @@ public sealed partial class OpenBrowserCommand(
         return Path.Combine(serverFolderName, username);
     }
 
-    private (string Username, string Server, bool headless) GetAccount(AccountId accountId)
+    private (string Username, string Server, bool headless, string? TimeZone, string? Language) GetAccount(AccountId accountId)
     {
         using var context = contextFactory.CreateDbContext();
         var account = context.Accounts
@@ -56,12 +64,50 @@ public sealed partial class OpenBrowserCommand(
            .Select(x => new
            {
                x.Username,
-               x.Server
+               x.Server,
+               x.TimeZone,
+               x.Language,
            })
            .First();
 
         var headless = context.BooleanByName(accountId, AccountSettingEnums.HeadlessChrome);
-        return (account.Username, account.Server, headless);
+        return (account.Username, account.Server, headless, account.TimeZone, account.Language);
+    }
+
+    private async Task<ResolvedLocale> ResolveLocale(AccessDto access, string? timeZone, string? language)
+    {
+        GeoInfo? geo = null;
+        if (AccountLocale.NeedsLookup(timeZone, language))
+        {
+            geo = await LookupGeo(access);
+            if (geo is null)
+            {
+                logger.Warning("Could not look up the current IP's location; using this computer's time zone");
+            }
+        }
+
+        return AccountLocale.Resolve(timeZone, language, geo, timeProvider.LocalTimeZone);
+    }
+
+    // Looked up from the same connection the browser will use (the access's proxy, or no proxy),
+    // so the browser's time zone and language match the IP that Travian sees.
+    private async Task<GeoInfo?> LookupGeo(AccessDto access)
+    {
+        foreach (var url in GEO_LOOKUP_URLS)
+        {
+            try
+            {
+                using var client = CreateHttpClient(access);
+                var json = await client.GetStringAsync(url);
+                var geo = AccountLocale.ParseGeoJson(json);
+                if (geo is not null) return geo;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                logger.Warning(ex, "Location lookup via {Url} failed: {Message}", url, ex.Message);
+            }
+        }
+        return null;
     }
 
     private void UpdateLastUsed(AccessDto access)
@@ -130,11 +176,14 @@ public sealed partial class OpenBrowserCommand(
     {
         foreach (var proxy in proxies)
         {
+            // Without a proxy there is nothing to test, and a request would only add noise from this IP.
+            if (string.IsNullOrEmpty(proxy.ProxyHost)) return proxy;
+
             using var client = CreateHttpClient(proxy);
             logger.Information("Checking proxy {Proxy}, last used {LastUsed}", proxy, proxy.LastUsed);
             try
             {
-                using var response = await client.GetAsync(TRAVIAN_PAGE);
+                using var response = await client.GetAsync(PROXY_CHECK_URL);
                 if (response.IsSuccessStatusCode)
                 {
                     logger.Information("Access {Proxy} is good", proxy);
@@ -154,7 +203,11 @@ public sealed partial class OpenBrowserCommand(
 
     private static readonly TimeSpan ProxyCheckTimeout = TimeSpan.FromSeconds(15);
 
-    private const string TRAVIAN_PAGE = "https://www.travian.com/international";
+    // A neutral connectivity URL (the one Chrome itself uses), so the check never shows Travian
+    // a header-less, cookie-less request from the account's proxy IP right before each login.
+    private static readonly string[] GEO_LOOKUP_URLS = ["https://ipinfo.io/json", "https://ipapi.co/json/"];
+
+    public const string PROXY_CHECK_URL = "https://www.gstatic.com/generate_204";
 
     // Each check gets its own handler and proxy object. A shared static proxy was
     // overwritten per account, so two accounts starting together could check through

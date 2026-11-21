@@ -63,7 +63,13 @@ namespace MainCore.Infrasturecture.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Language")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Server")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TimeZone")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Username")

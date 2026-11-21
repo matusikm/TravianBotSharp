@@ -182,8 +182,6 @@ namespace MainCore.UI.ViewModels.Tabs
         [ReactiveCommand(RunInBackground = true)]
         private void AddToDatabase(List<AccountDetailDto> dtos)
         {
-            var defaultSettings = LoadAccountDefaultSettings();
-
             var accounts = dtos
                 .Select(dto => new Account()
                 {
@@ -204,7 +202,7 @@ namespace MainCore.UI.ViewModels.Tabs
             using var context = _contextFactory.CreateDbContext();
             foreach (var account in accounts)
             {
-                foreach (var (setting, value) in defaultSettings)
+                foreach (var (setting, value) in LoadAccountDefaultSettings())
                 {
                     account.Settings.Add(new AccountSetting
                     {
@@ -220,8 +218,9 @@ namespace MainCore.UI.ViewModels.Tabs
 
         private Dictionary<AccountSettingEnums, int> LoadAccountDefaultSettings()
         {
-            var settings = AppDbContext.AccountDefaultSettings
-                .ToDictionary(x => x.Key, x => x.Value);
+            // Each new account gets its own timings, so accounts don't all share the same ranges.
+            // Values from the user's settings template still win.
+            var settings = HumanTiming.RandomizedAccountDefaults(Random.Shared);
 
             var path = _defaultTemplatePathStore.Get().AccountSettingsPath;
             if (string.IsNullOrWhiteSpace(path)) return settings;
