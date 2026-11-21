@@ -31,9 +31,12 @@ namespace MainCore.Test.ArchitectureTests
         [Fact]
         public void Behavior_ShouldHave_NameEndingWith_Behavior()
         {
+            // Behavior<,> is an abstract class, not an interface, so match on inheritance.
+            // Behaviors are generic, so their metadata names end in a backtick arity (`2).
             Classes().That()
-                .ImplementInterface(typeof(Behavior<,>))
-                .Should().HaveNameEndingWith("Behavior")
+                .AreAssignableTo(typeof(Behavior<,>))
+                .And().AreNotAbstract()
+                .Should().HaveNameMatching(@"Behavior(`\d+)?$")
                 .Check(Architecture);
         }
     }

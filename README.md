@@ -56,6 +56,7 @@ TBS has two desktop front ends that share the same bot core (`MainCore`):
 
 The database (`TBS.db`), `logs/` and Chrome profiles (`Data/`) are stored next to the executable, the same as on Windows.
 For development, `dotnet run --project AvaloniaUI` works too.
+Run the tests with `dotnet test --project MainCore.Test` (they need Google Chrome installed).
 
 ## FAQs
 
