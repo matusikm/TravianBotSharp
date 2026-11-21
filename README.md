@@ -70,7 +70,7 @@ dotnet publish AvaloniaUI -c Release -r linux-x64 --self-contained -o ~/tbs
 Account and proxy passwords are encrypted in `TBS.db`. On Windows the key is your Windows user (DPAPI); on Linux and macOS it is `~/.config/TravianBotSharp/secret.key`, readable only by you. If you move `TBS.db` to another computer or user, or delete that key, re-enter the passwords.
 For development, `dotnet run --project AvaloniaUI` works too.
 Run the tests with `dotnet test --project MainCore.Test` (they need Google Chrome installed).
-To publish a release, push a tag like `1.2.0` or run the **Release** workflow from the Actions tab with a version. It builds the Linux tarball and `.deb`, the Windows zip and the macOS zips, checks that they start (Ubuntu 26.04, Windows, Apple Silicon), attaches them to a GitHub Release and deletes releases older than the newest 5.
+To publish a release, run the **Release** workflow from the Actions tab and type a version like `1.2.0` (it never runs on its own). It builds the Linux tarball and `.deb`, the Windows zip and the macOS zips, checks that they start (Ubuntu 26.04, Windows, Apple Silicon), attaches them to a GitHub Release and deletes releases older than the newest 5.
 After changing an entity, add a migration with `dotnet tool restore` and `dotnet ef migrations add <Name> --project MainCore --output-dir Infrasturecture/Migrations`.
 
 ## FAQs

@@ -4,26 +4,20 @@ name: Release
 # Intel .app zips), smoke-tests each one and publishes them together as a GitHub Release.
 # Only the newest 5 releases are kept; older releases and their tags are deleted.
 #
-# To release: push a tag like 1.2.0 (or v1.2.0), or run this workflow by hand and type a version.
-# Pull requests that change the packaging only build and smoke-test the packages.
+# It only runs by hand: Actions > Release > Run workflow, then type a version.
 
 on:
-  push:
-    tags:
-      - "[0-9]+.[0-9]+.[0-9]+"
-      - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
       version:
         description: "Version to release, like 1.2.0. The tag is created on the branch you run this from."
         required: true
         type: string
-  pull_request:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/release.yml"
-      - "packaging/**"
+      publish:
+        description: "Publish the GitHub Release. Untick for a dry run that only builds and smoke-tests the packages."
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -49,15 +43,9 @@ jobs:
       - name: Get version
         id: version
         env:
-          EVENT: ${{ github.event_name }}
           INPUT_VERSION: ${{ inputs.version }}
-          REF_NAME: ${{ github.ref_name }}
         run: |
-          case "$EVENT" in
-            push) tag=$REF_NAME ;;
-            workflow_dispatch) tag=$INPUT_VERSION ;;
-            *) tag=0.0.0 ;;
-          esac
+          tag=$INPUT_VERSION
           if [[ ! $tag =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
             echo "::error::Version '$tag' must look like 1.2.0 or v1.2.0"
             exit 1
@@ -199,7 +187,7 @@ jobs:
   release:
     name: Publish release
     needs: [version, linux, windows, macos]
-    if: github.event_name != 'pull_request'
+    if: inputs.publish
     runs-on: ubuntu-26.04
     permissions:
       contents: write
