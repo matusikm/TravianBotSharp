@@ -27,7 +27,35 @@
 
 ## Tech specification
 
-Currently, TBS only runs on Windows.
+TBS has two desktop front ends that share the same bot core (`MainCore`):
+
+- `WPFUI`: the original Windows app.
+- `AvaloniaUI`: a cross-platform app for Linux (tested on Ubuntu) and Windows.
+
+## Running on Linux (Ubuntu)
+
+1. Install the .NET 10 SDK and Google Chrome (the bot drives real Chrome, so Chromium from snap will not work):
+
+   ```bash
+   sudo apt install dotnet-sdk-10.0
+   wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+   sudo apt install ./google-chrome-stable_current_amd64.deb
+   ```
+
+2. Build a self-contained copy:
+
+   ```bash
+   dotnet publish AvaloniaUI -c Release -r linux-x64 --self-contained -o ~/tbs
+   ```
+
+3. Run it:
+
+   ```bash
+   ~/tbs/TravianBotSharp
+   ```
+
+The database (`TBS.db`), `logs/` and Chrome profiles (`Data/`) are stored next to the executable, the same as on Windows.
+For development, `dotnet run --project AvaloniaUI` works too.
 
 ## FAQs
 

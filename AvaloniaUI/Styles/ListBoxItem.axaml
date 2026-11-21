@@ -1,0 +1,19 @@
+<ResourceDictionary
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converter="using:AvaloniaUI.Converter">
+
+    <converter:SplatColorToBrushConverter x:Key="ColorConverter" />
+    <converter:TribeItemToCroppedBitmap x:Key="TribeItemConverter" />
+    <converter:TroopItemToCroppedBitmap x:Key="TroopItemConverter" />
+
+    <DataTemplate x:Key="ListBoxItem">
+        <TextBlock Text="{Binding Content}" />
+    </DataTemplate>
+    <DataTemplate x:Key="ListBoxColorItem">
+        <TextBlock Text="{Binding Content}" Foreground="{Binding Color, Converter={StaticResource ColorConverter}}" />
+    </DataTemplate>
+    <DataTemplate x:Key="ListBoxBlackColorItem">
+        <TextBlock Text="{Binding Content}" Background="Black" Foreground="{Binding Color, Converter={StaticResource ColorConverter}}" />
+    </DataTemplate>
+</ResourceDictionary>

@@ -1,0 +1,28 @@
+<v:DebugTagBase
+    x:Class="AvaloniaUI.Views.Tabs.DebugTag"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mi="using:Material.Icons.Avalonia"
+    xmlns:v="using:AvaloniaUI.Views.Tabs">
+    <Grid Background="#FFE5E5E5" RowDefinitions="*,Auto">
+        <Grid Grid.Row="0" RowDefinitions="Auto,Auto,*" ColumnDefinitions="*,*">
+            <Button x:Name="ReportButton" Grid.Row="0" Grid.Column="0" Margin="10" Content="Buy a Coffee for Vinaghost" />
+            <Button x:Name="LogButton" Grid.Row="0" Grid.Column="1" Margin="10" Content="Open log folder" />
+            <Label x:Name="TaskTableLabel" Grid.Row="1" Grid.Column="0" HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Content="Task table" />
+            <Label x:Name="LogTableLabel" Grid.Row="1" Grid.Column="1" HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" Content="Log messages" />
+            <Border Grid.Row="2" Grid.Column="0" Classes="Box">
+                <DataGrid x:Name="TaskView" IsReadOnly="True" AutoGenerateColumns="False" GridLinesVisibility="All">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Task" Binding="{Binding Task}" />
+                        <DataGridTextColumn Header="Execute at" Binding="{Binding ExecuteAt}" />
+                        <DataGridTextColumn Header="Stage" Binding="{Binding Stage}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+            <Border Grid.Row="2" Grid.Column="1" Classes="Box">
+                <TextBox x:Name="LogView" VerticalContentAlignment="Top" IsReadOnly="True" TextWrapping="Wrap" />
+            </Border>
+        </Grid>
+        <Button x:Name="BringToFrontButton" Grid.Row="1" Margin="10" Content="Bring browser to front" />
+    </Grid>
+</v:DebugTagBase>
