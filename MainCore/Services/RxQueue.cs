@@ -106,7 +106,14 @@ public class RxQueue
 
     public void RegisterCommand<T>(ReactiveCommand<T, RxVoid> command) where T : INotification
     {
-        GetObservable<T>().InvokeCommand(command);
+        // Same as InvokeCommand(ICommand): run the command for each notification it can execute.
+        // Written out because the ReactiveUI.Binding generator can't intercept InvokeCommand
+        // on an open generic T (RXUIBIND016).
+        System.Windows.Input.ICommand invokable = command;
+        GetObservable<T>().Subscribe(notification =>
+        {
+            if (invokable.CanExecute(notification)) invokable.Execute(notification);
+        });
     }
 
     public IObservable<T> GetObservable<T>() where T : INotification
