@@ -1,18 +1,5 @@
 using System.Collections.Concurrent;
 
-using MainCore.Features.ClaimDailyQuest;
-using MainCore.Features.ClaimVillageQuest;
-using MainCore.Features.InstantUpgrade;
-using MainCore.Features.Login;
-using MainCore.Features.NPC;
-using MainCore.Features.SetHeroPoint;
-using MainCore.Features.Sleep;
-using MainCore.Features.StartAdventure;
-using MainCore.Features.StartFarmList;
-using MainCore.Features.TrainTroop;
-using MainCore.Features.Update;
-using MainCore.Features.UpgradeBuilding;
-
 using Microsoft.Extensions.DependencyInjection;
 
 using Polly;
@@ -29,22 +16,30 @@ public sealed class TimerManager
 
     private volatile bool _isShutdown = false;
 
+    /// <summary>
+    /// Longest the loop sleeps without a reason to wake. Task and status changes wake it at once,
+    /// and the next due task sets the wait, so this only guards against missed signals.
+    /// </summary>
+    public static readonly TimeSpan MaxIdleWait = TimeSpan.FromSeconds(30);
+
     private readonly TaskManager _taskManager;
     private readonly RxQueue _rxQueue;
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly IDbContextFactory<AppDbContext> _contextFactory;
+    private readonly AccountSettingCache _settingCache;
     private readonly ChromeManager _chromeManager;
+    private readonly TimeProvider _timeProvider;
 
     private static readonly ResiliencePropertyKey<ContextData> contextDataKey = new(nameof(ContextData));
     private readonly ResiliencePipeline<Result> _pipeline;
 
-    public TimerManager(TaskManager taskManager, IServiceScopeFactory serviceScopeFactory, RxQueue rxQueue, IDbContextFactory<AppDbContext> contextFactory, ChromeManager chromeManager)
+    public TimerManager(TaskManager taskManager, IServiceScopeFactory serviceScopeFactory, RxQueue rxQueue, AccountSettingCache settingCache, ChromeManager chromeManager, TimeProvider timeProvider)
     {
         _taskManager = taskManager;
         _serviceScopeFactory = serviceScopeFactory;
         _rxQueue = rxQueue;
-        _contextFactory = contextFactory;
+        _settingCache = settingCache;
         _chromeManager = chromeManager;
+        _timeProvider = timeProvider;
 
         static async ValueTask OnRetry(OnRetryArguments<Result> args)
         {
@@ -81,7 +76,7 @@ public sealed class TimerManager
             OnRetry = OnRetry
         };
 
-        _pipeline = new ResiliencePipelineBuilder<Result>()
+        _pipeline = new ResiliencePipelineBuilder<Result> { TimeProvider = timeProvider }
             .AddRetry(retryOptions)
             .Build();
     }
@@ -96,7 +91,7 @@ public sealed class TimerManager
         if (tasks.Count == 0) return;
         var task = tasks[0];
 
-        if (task.ExecuteAt > DateTime.Now) return;
+        if (task.ExecuteAt > Now) return;
 
         actor.IsExecuting = true;
         var cts = new CancellationTokenSource();
@@ -123,7 +118,7 @@ public sealed class TimerManager
                 resilienceContext.Properties.Set(contextDataKey, contextData);
 
                 poliResult = await _pipeline.ExecuteOutcomeAsync(
-                    async (ctx, state) => Outcome.FromResult(await scope.Execute(state, ctx.CancellationToken)),
+                    async (ctx, state) => Outcome.FromResult(await TaskDispatcher.Execute(scope.ServiceProvider, state, ctx.CancellationToken)),
                     resilienceContext,
                     task);
             }
@@ -198,9 +193,39 @@ public sealed class TimerManager
             _taskManager.Remove(accountId, task);
         }
 
-        using var context = _contextFactory.CreateDbContext();
-        var delay = context.ByName(accountId, AccountSettingEnums.TaskDelayMin, AccountSettingEnums.TaskDelayMax);
-        await Task.Delay(delay);
+        var delay = _settingCache.Random(accountId, AccountSettingEnums.TaskDelayMin, AccountSettingEnums.TaskDelayMax);
+        await Task.Delay(TimeSpan.FromMilliseconds(delay), _timeProvider);
+    }
+
+    /// <summary>Local time, as task due times are stored in local time.</summary>
+    private DateTime Now => _timeProvider.GetLocalNow().DateTime;
+
+    /// <summary>
+    /// Sleeps until the next task is due, or until tasks or status change, whichever comes first.
+    /// <paramref name="changed"/> is taken before the last check so no change can slip in between.
+    /// </summary>
+    private async Task WaitForWork(AccountSchedulerActor actor, Task changed, CancellationToken cancellationToken)
+    {
+        var delay = MaxIdleWait;
+        if (actor.Status == StatusEnums.Online)
+        {
+            var nextDue = actor.Tasks.Select(x => (DateTime?)x.ExecuteAt).Min();
+            if (nextDue is not null)
+            {
+                var untilDue = nextDue.Value - Now;
+                if (untilDue <= TimeSpan.Zero) return;
+                if (untilDue < delay) delay = untilDue;
+            }
+        }
+
+        try
+        {
+            await changed.WaitAsync(delay, _timeProvider, cancellationToken);
+        }
+        catch (TimeoutException)
+        {
+            // Next task is due (or the idle cap passed).
+        }
     }
 
     public void Shutdown()
@@ -228,16 +253,24 @@ public sealed class TimerManager
             return;
         }
 
-        _ = Task.Run(async () =>
+        _ = Task.Run(() => RunLoop(accountId, cancellationTokenSource), CancellationToken.None);
+    }
+
+    private async Task RunLoop(AccountId accountId, CancellationTokenSource cancellationTokenSource)
+    {
+        var token = cancellationTokenSource.Token;
+        var actor = _taskManager.GetActor(accountId);
+        try
         {
-            while (!_isShutdown && !cancellationTokenSource.Token.IsCancellationRequested)
+            while (!_isShutdown && !token.IsCancellationRequested)
             {
+                var changed = actor.WaitForChangeAsync();
                 try
                 {
                     await Execute(accountId);
-                    await Task.Delay(100, cancellationTokenSource.Token);
+                    await WaitForWork(actor, changed, token);
                 }
-                catch (OperationCanceledException) when (_isShutdown || cancellationTokenSource.Token.IsCancellationRequested)
+                catch (OperationCanceledException) when (_isShutdown || token.IsCancellationRequested)
                 {
                     break;
                 }
@@ -248,12 +281,14 @@ public sealed class TimerManager
                     await HandleLoopError(accountId, ex);
                 }
             }
-
-            if (_loops.TryRemove(accountId, out var ownedCancellationTokenSource))
+        }
+        finally
+        {
+            if (_loops.TryRemove(new KeyValuePair<AccountId, CancellationTokenSource>(accountId, cancellationTokenSource)))
             {
-                ownedCancellationTokenSource.Dispose();
+                cancellationTokenSource.Dispose();
             }
-        }, cancellationTokenSource.Token);
+        }
     }
 
     /// <summary>True while the account's scheduler loop is running.</summary>
@@ -266,7 +301,7 @@ public sealed class TimerManager
             Log.ForContext("AccountId", accountId)
                 .Error(ex, "Unexpected error in the task loop. Bot is pausing: {Message}", ex.Message);
             _taskManager.SetStatus(accountId, StatusEnums.Paused);
-            await Task.Delay(1000);
+            await Task.Delay(TimeSpan.FromSeconds(1), _timeProvider);
         }
         catch
         {
@@ -275,77 +310,4 @@ public sealed class TimerManager
     }
 
     public record ContextData(string TaskName, IChromeBrowser Browser);
-}
-
-public static class ServiceScopeExtension
-{
-    private static IHandler<T, Result> GetHandler<T>(this IServiceScope scope)
-    {
-        return scope.ServiceProvider.GetRequiredService<IHandler<T, Result>>();
-    }
-
-    public static async Task<Result> Execute(this IServiceScope scope, BaseTask task, CancellationToken cancellationToken)
-    {
-        switch (task)
-        {
-            case ClaimVillageQuestTask.Task claimQuestTask:
-                var claimQuestTaskHandler = scope.GetHandler<ClaimVillageQuestTask.Task>();
-                return await claimQuestTaskHandler.HandleAsync(claimQuestTask, cancellationToken);
-
-            case InstantUpgradeTask.Task completeImmediatelyTask:
-                var completeImmediatelyTaskHandler = scope.GetHandler<InstantUpgradeTask.Task>();
-                return await completeImmediatelyTaskHandler.HandleAsync(completeImmediatelyTask, cancellationToken);
-
-            case LoginTask.Task loginTask:
-                var loginTaskHandler = scope.GetHandler<LoginTask.Task>();
-                return await loginTaskHandler.HandleAsync(loginTask, cancellationToken);
-
-            case NPCTask.Task npcTask:
-                var npcTaskHandler = scope.GetHandler<NPCTask.Task>();
-                return await npcTaskHandler.HandleAsync(npcTask, cancellationToken);
-
-            case SleepTask.Task sleepTask:
-                var sleepTaskHandler = scope.GetHandler<SleepTask.Task>();
-                return await sleepTaskHandler.HandleAsync(sleepTask, cancellationToken);
-
-            case StartAdventureTask.Task startAdventureTask:
-                var startAdventureTaskHandler = scope.GetHandler<StartAdventureTask.Task>();
-                return await startAdventureTaskHandler.HandleAsync(startAdventureTask, cancellationToken);
-
-            case StartFarmListTask.Task startFarmListTask:
-                var startFarmListTaskHandler = scope.GetHandler<StartFarmListTask.Task>();
-                return await startFarmListTaskHandler.HandleAsync(startFarmListTask, cancellationToken);
-
-            case TrainTroopTask.Task trainTroopTask:
-                var trainTroopTaskHandler = scope.GetHandler<TrainTroopTask.Task>();
-                return await trainTroopTaskHandler.HandleAsync(trainTroopTask, cancellationToken);
-
-            case UpdateBuildingTask.Task updateBuildingTask:
-                var updateBuildingTaskHandler = scope.GetHandler<UpdateBuildingTask.Task>();
-                return await updateBuildingTaskHandler.HandleAsync(updateBuildingTask, cancellationToken);
-
-            case UpdateFarmListTask.Task updateFarmListTask:
-                var updateFarmListTaskHandler = scope.GetHandler<UpdateFarmListTask.Task>();
-                return await updateFarmListTaskHandler.HandleAsync(updateFarmListTask, cancellationToken);
-
-            case UpdateVillageTask.Task updateVillageTask:
-                var updateVillageTaskHandler = scope.GetHandler<UpdateVillageTask.Task>();
-                return await updateVillageTaskHandler.HandleAsync(updateVillageTask, cancellationToken);
-
-            case UpgradeBuildingTask.Task upgradeBuildingTask:
-                var upgradeBuildingTaskHandler = scope.GetHandler<UpgradeBuildingTask.Task>();
-                return await upgradeBuildingTaskHandler.HandleAsync(upgradeBuildingTask, cancellationToken);
-
-            case ClaimDailyQuestTask.Task claimDailyQuestTask:
-                var claimDailyQuestTaskHandler = scope.GetHandler<ClaimDailyQuestTask.Task>();
-                return await claimDailyQuestTaskHandler.HandleAsync(claimDailyQuestTask, cancellationToken);
-
-            case SetHeroPointTask.Task setHeroPointTask:
-                var setHeroPointTaskHandler = scope.GetHandler<SetHeroPointTask.Task>();
-                return await setHeroPointTaskHandler.HandleAsync(setHeroPointTask, cancellationToken);
-
-            default:
-                throw new NotImplementedException($"Task {task.GetType().Name} is not implemented");
-        }
-    }
 }

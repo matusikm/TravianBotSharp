@@ -14,7 +14,7 @@ public class ChromeSetting
     public bool IsHeadless { get; set; }
 }
 
-public sealed class ChromeBrowser(IDbContextFactory<AppDbContext> contextFactory) : IChromeBrowser
+public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBrowser
 {
     private IPlaywright? _playwright;
     private IBrowserContext? _browser;
@@ -38,8 +38,7 @@ public sealed class ChromeBrowser(IDbContextFactory<AppDbContext> contextFactory
 
     public async Task DelayClick()
     {
-        using var context = contextFactory.CreateDbContext();
-        var delay = context.ByName(AccountId, AccountSettingEnums.ClickDelayMin, AccountSettingEnums.ClickDelayMax);
+        var delay = settingCache.Random(AccountId, AccountSettingEnums.ClickDelayMin, AccountSettingEnums.ClickDelayMax);
         await Task.Delay(delay);
     }
 

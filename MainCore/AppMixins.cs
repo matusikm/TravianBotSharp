@@ -52,6 +52,7 @@ namespace MainCore
         public static IHostBuilder ConfigureServices(this IHostBuilder hostBuilder) =>
             hostBuilder.ConfigureServices(services =>
             {
+                services.AddSingleton(TimeProvider.System);
                 services.AddMainCore();
                 services.AddValidatorsFromAssembly(typeof(AppMixins).Assembly, ServiceLifetime.Singleton);
                 services.AddMainCoreHandlers();
