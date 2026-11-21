@@ -159,7 +159,7 @@ jobs:
     name: Build ${{ matrix.rid }}
     needs: version
     # Built on macOS because Apple Silicon needs signed binaries (ad hoc here, see build-app.sh).
-    runs-on: macos-26
+    runs-on: xcode-27
     strategy:
       matrix:
         rid: [osx-arm64, osx-x64]
@@ -185,7 +185,7 @@ jobs:
       - name: Build app bundle
         run: packaging/macos/build-app.sh "$VERSION" ${{ matrix.rid }} publish/${{ matrix.rid }} dist
 
-      # The runner is Apple Silicon, so only the arm64 build can be started here.
+      # The runner (macOS 27, label xcode-27, public preview) is Apple Silicon, so only the arm64 build can be started here.
       - name: Smoke test
         if: matrix.rid == 'osx-arm64'
         run: packaging/macos/smoke-test.sh "dist/TravianBotSharp-$VERSION-${{ matrix.rid }}.zip"
