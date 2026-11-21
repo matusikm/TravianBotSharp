@@ -27,6 +27,10 @@ namespace MainCore.Infrasturecture
                 access.Property(x => x.ProxyPassword)
                     .HasConversion(v => SecretProtection.Protect(v), v => SecretProtection.Unprotect(v));
             });
+
+            modelBuilder.Entity<Account>()
+                .Property(x => x.TelegramBotToken)
+                .HasConversion(v => SecretProtection.Protect(v), v => SecretProtection.Unprotect(v));
         }
 
         #region table
@@ -74,6 +78,10 @@ namespace MainCore.Infrasturecture
             {AccountSettingEnums.NightSleepJitter, 45 },
             {AccountSettingEnums.FarmIdleMin, 9 },
             {AccountSettingEnums.FarmIdleMax, 63 },
+            {AccountSettingEnums.EnableTelegram, 0 },
+            {AccountSettingEnums.TelegramNotifyAttack, 1 },
+            {AccountSettingEnums.TelegramNotifyPaused, 1 },
+            {AccountSettingEnums.TelegramNotifyStorage, 1 },
         }.ToImmutableDictionary();
 
         private List<AccountSettingEnums> GetMissingAccountSettings()

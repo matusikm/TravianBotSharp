@@ -27,6 +27,11 @@ namespace MainCore.UI.Models.Input
 
             FarmInterval.Set(settings.GetValueOrDefault(AccountSettingEnums.FarmIntervalMin), settings.GetValueOrDefault(AccountSettingEnums.FarmIntervalMax));
             UseStartAllButton = settings.GetValueOrDefault(AccountSettingEnums.UseStartAllButton) == 1;
+
+            EnableTelegram = settings.GetValueOrDefault(AccountSettingEnums.EnableTelegram) == 1;
+            TelegramNotifyAttack = settings.GetValueOrDefault(AccountSettingEnums.TelegramNotifyAttack, 1) == 1;
+            TelegramNotifyPaused = settings.GetValueOrDefault(AccountSettingEnums.TelegramNotifyPaused, 1) == 1;
+            TelegramNotifyStorage = settings.GetValueOrDefault(AccountSettingEnums.TelegramNotifyStorage, 1) == 1;
         }
 
         public Dictionary<AccountSettingEnums, int> Get()
@@ -76,6 +81,11 @@ namespace MainCore.UI.Models.Input
                 { AccountSettingEnums.NightSleepJitter, NightSleepJitter.Get() },
                 { AccountSettingEnums.FarmIdleMin, farmIdleMin },
                 { AccountSettingEnums.FarmIdleMax, farmIdleMax },
+
+                { AccountSettingEnums.EnableTelegram, EnableTelegram ? 1 : 0 },
+                { AccountSettingEnums.TelegramNotifyAttack, TelegramNotifyAttack ? 1 : 0 },
+                { AccountSettingEnums.TelegramNotifyPaused, TelegramNotifyPaused ? 1 : 0 },
+                { AccountSettingEnums.TelegramNotifyStorage, TelegramNotifyStorage ? 1 : 0 },
             };
 
             // Times that don't parse are caught by the validator; skip them here rather than save garbage.
@@ -149,5 +159,25 @@ namespace MainCore.UI.Models.Input
 
         [Reactive]
         private bool _enableAutoSetHeroPoint;
+
+        [Reactive]
+        private bool _enableTelegram;
+
+        [Reactive]
+        private bool _telegramNotifyAttack = true;
+
+        [Reactive]
+        private bool _telegramNotifyPaused = true;
+
+        [Reactive]
+        private bool _telegramNotifyStorage = true;
+
+        /// <summary>Stored on the account (encrypted), not in the settings list or in exports.</summary>
+        [Reactive]
+        private string _telegramBotToken = "";
+
+        /// <summary>Stored on the account, not in the settings list or in exports.</summary>
+        [Reactive]
+        private string _telegramChatId = "";
     }
 }

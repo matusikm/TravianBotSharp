@@ -1,6 +1,7 @@
 using MainCore.Features.Login;
 using MainCore.Features.Sleep;
 using MainCore.Features.StartAdventure;
+using MainCore.Features.Telegram;
 using MainCore.Features.TrainTroop;
 using MainCore.Features.Update;
 using MainCore.Features.UpgradeBuilding;
@@ -37,6 +38,7 @@ public class RxQueue
     {
         RegisterHandler<AccountInit>(AccountInitHandler);
         RegisterHandler<VillageTaskAdded>(VillageTaskAddedHandler);
+        Locator.Current.GetService<TelegramNotifier>()?.Register(this);
     }
 
     private void AccountInitHandler(AccountInit notification)

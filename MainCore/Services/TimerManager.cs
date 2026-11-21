@@ -212,6 +212,7 @@ public sealed class TimerManager
                 browser.Logger.Information("Screenshot saved as {FileName}", filename);
                 browser.Logger.Warning("There is something wrong. Bot is pausing. Last exception is");
                 browser.Logger.Error(ex, "{Message}", ex.Message);
+                _rxQueue.Enqueue(new AccountNeedsAttention(accountId, $"{task.Description} failed: {ex.Message}"));
             }
 
             _taskManager.SetStatus(accountId, StatusEnums.Paused);
@@ -225,6 +226,7 @@ public sealed class TimerManager
                 {
                     var filename = await browser.Screenshot();
                     browser.Logger.Information(messageTemplate: "Screenshot saved as {FileName}", filename);
+                    _rxQueue.Enqueue(new AccountNeedsAttention(accountId, $"{task.Description} stopped: {DescribeErrors(result)}"));
                     _taskManager.SetStatus(accountId, StatusEnums.Paused);
                 }
                 else if (result.HasError<Skip>())
@@ -294,6 +296,7 @@ public sealed class TimerManager
         if (actor.TrySetStatus(StatusEnums.WaitingForNetwork, StatusEnums.Paused))
         {
             logger.Error("No internet for {LostFor}. Bot is pausing; press Resume once the connection is back", lostFor.Humanize());
+            _rxQueue.Enqueue(new AccountNeedsAttention(accountId, $"no internet for {lostFor.Humanize()}"));
         }
     }
 
@@ -398,12 +401,26 @@ public sealed class TimerManager
     /// <summary>True while the account's scheduler loop is running.</summary>
     public bool IsRunning(AccountId accountId) => _loops.ContainsKey(accountId);
 
+    /// <summary>The specific error messages, without the generic "Bot must stop" / "Bot must retry".</summary>
+    public static string DescribeErrors(Result result)
+    {
+        var messages = result.Errors
+            .Where(x => x is not Stop and not Retry)
+            .Select(x => x.Message)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct()
+            .ToList();
+        if (messages.Count > 0) return string.Join("; ", messages);
+        return result.HasError<Retry>() ? "it kept failing after retries" : "it hit a problem it can't solve on its own";
+    }
+
     private async Task HandleLoopError(AccountId accountId, Exception ex)
     {
         try
         {
             Log.ForContext("AccountId", accountId)
                 .Error(ex, "Unexpected error in the task loop. Bot is pausing: {Message}", ex.Message);
+            _rxQueue.Enqueue(new AccountNeedsAttention(accountId, $"unexpected error: {ex.Message}"));
             _taskManager.SetStatus(accountId, StatusEnums.Paused);
             await Task.Delay(TimeSpan.FromSeconds(1), _timeProvider);
         }

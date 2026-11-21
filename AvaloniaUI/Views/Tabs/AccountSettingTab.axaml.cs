@@ -42,6 +42,15 @@ namespace AvaloniaUI.Views.Tabs
                 this.OneWayBind(ViewModel, vm => vm.AccountSettingInput.NightSleepJitter, v => v.NightSleepJitter.ViewModel).DisposeWith(d);
                 this.Bind(ViewModel, vm => vm.AccountSettingInput.TimeZone, v => v.TimeZoneTextBox.Text).DisposeWith(d);
                 this.Bind(ViewModel, vm => vm.AccountSettingInput.Language, v => v.LanguageTextBox.Text).DisposeWith(d);
+
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.EnableTelegram, v => v.EnableTelegram.IsChecked).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.TelegramBotToken, v => v.TelegramBotToken.Text).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.TelegramChatId, v => v.TelegramChatId.Text).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.TelegramNotifyAttack, v => v.TelegramNotifyAttack.IsChecked).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.TelegramNotifyPaused, v => v.TelegramNotifyPaused.IsChecked).DisposeWith(d);
+                this.Bind(ViewModel, vm => vm.AccountSettingInput.TelegramNotifyStorage, v => v.TelegramNotifyStorage.IsChecked).DisposeWith(d);
+                this.BindCommand(ViewModel, vm => vm.FindTelegramChatCommand, v => v.FindTelegramChatButton).DisposeWith(d);
+                this.BindCommand(ViewModel, vm => vm.SendTelegramTestCommand, v => v.SendTelegramTestButton).DisposeWith(d);
             });
         }
     }

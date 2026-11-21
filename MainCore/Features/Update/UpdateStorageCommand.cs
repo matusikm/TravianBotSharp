@@ -8,7 +8,8 @@ namespace MainCore.Features.Update;
 [Handler]
 public sealed partial class UpdateStorageCommand(
     IDbContextFactory<AppDbContext> contextFactory,
-    TaskManager taskManager)
+    TaskManager taskManager,
+    RxQueue rxQueue)
 {
     public sealed record Command(IChromeBrowser Browser, VillageId VillageId) : IVillageBrowserCommand
     {
@@ -21,6 +22,7 @@ public sealed partial class UpdateStorageCommand(
 
         var dto = await GetData(browser.CurrentPage);
         UpdateStorage(villageId, dto);
+        rxQueue.Enqueue(new StorageModified(accountId, villageId, dto));
         TriggerNpcTask(accountId, villageId);
     }
 

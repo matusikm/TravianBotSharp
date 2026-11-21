@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 
+using MainCore.Features.Telegram;
 using MainCore.UI.Models.Input;
 
 namespace MainCore.UI.Models.Validators
@@ -61,6 +62,15 @@ namespace MainCore.UI.Models.Validators
             RuleFor(x => x.Language)
                 .Must(x => string.IsNullOrWhiteSpace(x) || AccountLocale.IsValidLanguage(x))
                 .WithMessage("Unknown language ({PropertyValue}). Use a code like en-US or th-TH, or leave it empty for auto");
+
+            RuleFor(x => x.TelegramBotToken)
+                .Must(TelegramClient.IsValidToken)
+                .When(x => x.EnableTelegram)
+                .WithMessage("Telegram is on, but the bot token doesn't look right. It's the text @BotFather gave you, like 123456789:ABC...");
+            RuleFor(x => x.TelegramChatId)
+                .Must(TelegramClient.IsValidChatId)
+                .When(x => x.EnableTelegram)
+                .WithMessage("Telegram is on, but the chat ID is missing or wrong. Use Find chat, or enter a number like 123456789");
         }
     }
 }

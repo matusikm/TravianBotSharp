@@ -20,6 +20,12 @@ namespace MainCore.Infrasturecture.Entities
         /// <summary>IANA time zone for the browser and the night window. Empty: look it up from the current IP.</summary>
         public string TimeZone { get; set; }
 
+        /// <summary>Telegram bot token from @BotFather, encrypted at rest. Empty: no Telegram notifications.</summary>
+        public string TelegramBotToken { get; set; }
+
+        /// <summary>Telegram chat that receives the notifications: a numeric chat ID or @channelname.</summary>
+        public string TelegramChatId { get; set; }
+
         public AccountInfo Info { get; set; }
 
         public ICollection<AccountSetting> Settings { get; set; }

@@ -39,5 +39,17 @@
         FarmIdleMin,
 
         FarmIdleMax,
+
+        /// <summary>1 = send Telegram notifications for this account (bot token and chat are stored on the account).</summary>
+        EnableTelegram,
+
+        /// <summary>1 = Telegram message when a village gets attacked.</summary>
+        TelegramNotifyAttack,
+
+        /// <summary>1 = Telegram message when the bot pauses because of an error or a long internet outage.</summary>
+        TelegramNotifyPaused,
+
+        /// <summary>1 = Telegram message when a village's warehouse or granary is nearly full.</summary>
+        TelegramNotifyStorage,
     }
 }
