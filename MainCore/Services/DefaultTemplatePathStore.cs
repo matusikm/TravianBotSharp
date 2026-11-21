@@ -10,7 +10,7 @@ public sealed class DefaultTemplatePathStore
     private const string AccountSettingsKey = "DefaultAccountSettingsPath";
     private const string VillageSettingsKey = "DefaultVillageSettingsPath";
 
-    private readonly string _filePath = Path.Combine(AppContext.BaseDirectory, "default-templates.csv");
+    private readonly string _filePath = Path.Combine(AppPaths.DataDirectory, "default-templates.csv");
     private readonly Lock _sync = new();
 
     public DefaultTemplatePaths Get()

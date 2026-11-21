@@ -45,31 +45,27 @@ TBS has two desktop front ends that share the same bot core (`MainCore`):
 
 ## Running on Linux (Ubuntu)
 
-1. Install the .NET 10 SDK and Google Chrome (the bot drives real Chrome, so Chromium from snap will not work):
+Every release has a `.deb` and a portable tarball for Ubuntu 26.04 (24.04 works too). The bot drives real Google Chrome, so install Google's package; Chromium from snap will not work.
 
-   ```bash
-   sudo apt install dotnet-sdk-10.0
-   wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-   sudo apt install ./google-chrome-stable_current_amd64.deb
-   ```
+```bash
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+sudo apt install ./google-chrome-stable_current_amd64.deb ./travianbotsharp_<version>_amd64.deb
+travianbotsharp
+```
 
-2. Build a self-contained copy:
+The `.deb` installs to `/opt/travianbotsharp` and keeps the database (`TBS.db`), `logs/` and Chrome profiles (`Data/`) in `~/.local/share/TravianBotSharp`. The tarball (`tar -xzf TravianBotSharp-<version>-linux-x64.tar.gz -C ~`) keeps them next to the executable, the same as on Windows.
 
-   ```bash
-   dotnet publish AvaloniaUI -c Release -r linux-x64 --self-contained -o ~/tbs
-   ```
+To build it yourself instead, install the .NET 10 SDK (`sudo apt install dotnet-sdk-10.0`) and Chrome, then:
 
-3. Run it:
-
-   ```bash
-   ~/tbs/TravianBotSharp
-   ```
-
-The database (`TBS.db`), `logs/` and Chrome profiles (`Data/`) are stored next to the executable, the same as on Windows.
+```bash
+dotnet publish AvaloniaUI -c Release -r linux-x64 --self-contained -o ~/tbs
+~/tbs/TravianBotSharp
+```
 
 Account and proxy passwords are encrypted in `TBS.db`. On Windows the key is your Windows user (DPAPI); on Linux it is `~/.config/TravianBotSharp/secret.key`, readable only by you. If you move `TBS.db` to another computer or user, or delete that key, re-enter the passwords.
 For development, `dotnet run --project AvaloniaUI` works too.
 Run the tests with `dotnet test --project MainCore.Test` (they need Google Chrome installed).
+To publish a Linux release, push a tag like `1.2.0` or run the **Release (Linux)** workflow from the Actions tab with a version; it builds the tarball and `.deb`, checks that they install and start on Ubuntu 26.04, and attaches them to a GitHub Release.
 After changing an entity, add a migration with `dotnet tool restore` and `dotnet ef migrations add <Name> --project MainCore --output-dir Infrasturecture/Migrations`.
 
 ## FAQs
