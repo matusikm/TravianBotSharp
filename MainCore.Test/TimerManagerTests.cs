@@ -94,7 +94,19 @@ public sealed class TimerManagerTests : IDisposable
         _taskManager.Add(new SleepTask.Task(Account) { ExecuteAt = LocalNow });
 
         await _handler.Called.Task.WaitAsync(RealTimeout, TestContext.Current.CancellationToken);
-        _taskManager.GetTaskList(Account).ShouldBeEmpty();
+
+        // The loop removes the task after the handler returns, so wait for that instead of racing it.
+        await WaitUntil(() => _taskManager.GetTaskList(Account).Count == 0);
+    }
+
+    private static async Task WaitUntil(Func<bool> condition)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        timeout.CancelAfter(RealTimeout);
+        while (!condition())
+        {
+            await Task.Delay(10, timeout.Token);
+        }
     }
 
     [Fact]
