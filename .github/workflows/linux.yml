@@ -1,0 +1,66 @@
+name: Linux
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build Avalonia and run tests
+    runs-on: ubuntu-24.04
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install dotnet
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.404
+          cache: true
+          cache-dependency-path: "**/packages.lock.json"
+
+      # WPFUI only builds on Windows, so restore the Linux projects explicitly.
+      - name: Restore
+        run: |
+          dotnet restore AvaloniaUI --locked-mode
+          dotnet restore MainCore.Test --locked-mode
+
+      - name: Build
+        run: |
+          dotnet build AvaloniaUI -c Release --no-restore
+          dotnet build MainCore.Test -c Release --no-restore
+
+      # Parser tests drive the runner's preinstalled Google Chrome through Patchright.
+      - name: Test
+        run: dotnet test --project MainCore.Test -c Release --no-build
+
+      - name: Publish linux-x64
+        run: >
+          dotnet publish AvaloniaUI
+          -c Release
+          -r linux-x64
+          --self-contained
+          -o publish/TBS-linux-x64
+
+      - name: Upload build
+        uses: actions/upload-artifact@v7
+        with:
+          name: TBS-linux-x64
+          path: publish/TBS-linux-x64/
+          if-no-files-found: error
+          retention-days: 14
