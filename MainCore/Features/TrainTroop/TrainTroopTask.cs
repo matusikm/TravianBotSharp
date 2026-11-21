@@ -50,6 +50,12 @@ public sealed partial class TrainTroopTask(
                     break;
                 }
 
+                // Keep the user's choice: the troop may be researched later. Try the next building now.
+                if (result.HasError<TroopNotAvailable>())
+                {
+                    continue;
+                }
+
                 SaveSetting(task, settings);
                 return result;
             }
