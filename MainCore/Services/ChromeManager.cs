@@ -11,19 +11,19 @@ public sealed class ChromeManager(IDbContextFactory<AppDbContext> contextFactory
 
     public IChromeBrowser Get(AccountId accountId)
     {
-        if (_dictionary.TryGetValue(accountId, out IChromeBrowser? browser))
-        {
-            return browser;
-        }
+        // GetOrAdd guarantees every caller gets the same browser for an account.
+        // Under a race the factory can run twice, but only one result is kept and
+        // the other is never set up, so nothing leaks.
+        return _dictionary.GetOrAdd(accountId, Create);
+    }
 
-        browser = new ChromeBrowser(contextFactory);
+    private ChromeBrowser Create(AccountId accountId)
+    {
+        var browser = new ChromeBrowser(contextFactory);
         browser.SetAccountId(accountId);
-        var logger = Log
+        browser.Logger = Log
             .ForContext("Account", GetAccountData(accountId))
             .ForContext("AccountId", accountId);
-        browser.Logger = logger;
-
-        _dictionary.TryAdd(accountId, browser);
         return browser;
     }
 
