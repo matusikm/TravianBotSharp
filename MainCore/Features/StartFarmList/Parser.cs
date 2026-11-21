@@ -6,7 +6,7 @@
 
         public static async Task<List<FarmDto>> GetFarmInfo(this IPage page)
         {
-            var rawFarmsData = await page.EvaluateAsync<RawFarmDto[]>(@"() => {
+            var rawFarmsData = await page.EvaluateJsonAsync<RawFarmDto[]>(@"() => {
                 const elements = document.querySelectorAll('#rallyPointFarmList div.farmListHeader');
 
                 return Array.from(elements).map(header => {

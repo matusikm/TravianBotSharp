@@ -40,7 +40,7 @@ public static class Parser
         var rowsLocator = page.Locator("#heroAdventure tbody tr");
         await rowsLocator.First.WaitForAsync();
 
-        var rawAdventures = await page.EvaluateAsync<RawAdventureDto[]>(@"() => {
+        var rawAdventures = await page.EvaluateJsonAsync<RawAdventureDto[]>(@"() => {
                 const rows = document.querySelectorAll('#heroAdventure tbody tr');
                 return Array.from(rows).map((row, index) => {
                     const diffEl = row.querySelector('td.difficulty i');
@@ -79,7 +79,7 @@ public static class Parser
         var heroStatus = page.Locator("div.heroStatus a");
         await heroStatus.WaitForAsync();
 
-        var result = await page.EvaluateAsync<HeroState>(@"() => {
+        var result = await page.EvaluateJsonAsync<HeroState>(@"() => {
                 let health = -1;
                 const healthMask = document.getElementById('healthMask');
                 if (healthMask) {
