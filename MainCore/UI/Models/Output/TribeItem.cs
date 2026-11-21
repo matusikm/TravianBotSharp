@@ -23,15 +23,15 @@ namespace MainCore.UI.Models.Output
             Tribe = tribe;
         }
 
-        public static string GetImageSource(TribeEnums tribe)
+        /// <summary>File name of the sprite sheet; each UI maps it to its own resource URI.</summary>
+        public static string GetImageFile(TribeEnums tribe)
         {
-            const string url = "pack://application:,,,/Resources/";
-            return $"{url}{TribeImage[tribe]}";
+            return TribeImage[tribe];
         }
 
         public TribeEnums Tribe { get; }
 
-        public string ImageSource => GetImageSource(Tribe);
+        public string ImageFile => GetImageFile(Tribe);
         public static Rectangle ImageMask => new(0, 0, 61, 61);
     }
 }

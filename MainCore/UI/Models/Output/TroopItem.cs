@@ -36,11 +36,11 @@ namespace MainCore.UI.Models.Output
             Troop = troop;
         }
 
-        public static string GetImageSource(TroopEnums troop)
+        /// <summary>File name of the sprite sheet; each UI maps it to its own resource URI.</summary>
+        public static string GetImageFile(TroopEnums troop)
         {
-            const string url = "pack://application:,,,/Resources/";
-            if (troop == TroopEnums.None) return $"{url}{TribeImage[TribeEnums.Natars]}";
-            return $"{url}{TribeImage[troop.GetTribe()]}";
+            if (troop == TroopEnums.None) return TribeImage[TribeEnums.Natars];
+            return TribeImage[troop.GetTribe()];
         }
 
         public static Rectangle GetImageMask(TroopEnums troop)
@@ -51,7 +51,7 @@ namespace MainCore.UI.Models.Output
 
         public TroopEnums Troop { get; }
 
-        public string ImageSource => GetImageSource(Troop);
+        public string ImageFile => GetImageFile(Troop);
         public Rectangle ImageMask => GetImageMask(Troop);
     }
 }
