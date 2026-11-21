@@ -10,11 +10,11 @@ namespace MainCore.Test
         public async ValueTask InitializeAsync()
         {
             PlaywrightInstance = await Playwright.CreateAsync();
-            Browser = await PlaywrightInstance.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
-            {
-                Channel = "chrome",
-                Headless = true
-            });
+            var options = new BrowserTypeLaunchOptions { Headless = true };
+            var executable = Environment.GetEnvironmentVariable("TBS_TEST_CHROMIUM");
+            if (string.IsNullOrEmpty(executable)) options.Channel = "chrome";
+            else options.ExecutablePath = executable;
+            Browser = await PlaywrightInstance.Chromium.LaunchAsync(options);
         }
 
         public async ValueTask DisposeAsync()

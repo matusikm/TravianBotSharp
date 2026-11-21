@@ -1,4 +1,4 @@
-using MainCore.Features.Update;
+﻿using MainCore.Features.Update;
 using MainCore.Shared.Enums;
 
 namespace MainCore.Test;
@@ -53,5 +53,22 @@ public class BuildingParserTests(PlaywrightFixture fixture) : IClassFixture<Play
         snapshot.Names.Single().Name.ShouldBe("Holz");
         snapshot.Queue.Single().DurationSeconds.ShouldBe(-1);
         BuildingSnapshotReconciler.ResolveQueue(snapshot, snapshot.Names).ShouldBeFalse();
+    }
+
+    // Regression: Playwright's EvaluateAsync<T> converter confused several empty arrays in one result
+    // ("QueueBuildingDto[] cannot be converted to BuildingNameDto[]"), failing the update-building task.
+    [Theory]
+    [InlineData("<div class=\"village1\"><div id=\"resourceFieldContainer\"><a class=\"level buildingSlot1 gid1 level1\"></a></div></div>")]
+    [InlineData("<div></div>")]
+    public async Task GetBuildingData_HandlesSeveralEmptyArrays(string html)
+    {
+        await using var context = await fixture.Browser.NewContextAsync();
+        var page = await context.NewPageAsync();
+        await page.SetContentAsync(html);
+
+        var snapshot = await page.GetBuildingData();
+
+        snapshot.Queue.ShouldBeEmpty();
+        snapshot.Names.ShouldBeEmpty();
     }
 }

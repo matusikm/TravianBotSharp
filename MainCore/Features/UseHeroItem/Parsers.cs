@@ -26,12 +26,12 @@ public static class Parsers
 
     public static async Task<long[]> GetInventoryResources(this IPage page)
     {
-        var data = await page.EvaluateAsync<long[]>(@"() => {
+        var data = await page.EvaluateJsonAsync<long[]>(@"() => {
                 const cells = document.querySelectorAll('div.heroItem');
                 const result = [];
                 cells.forEach(cell => {
                     const countSlot = cell.querySelector('.count');
-                    result.push(countSlot ? parseInt(countSlot.innerText, 10) : 0);
+                    result.push(countSlot ? (parseInt(countSlot.innerText, 10) || 0) : 0);
                 });
                 return result;
             }");
