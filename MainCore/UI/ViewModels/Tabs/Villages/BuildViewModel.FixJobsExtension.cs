@@ -178,7 +178,7 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
 
         private static int GetRandomLocation(List<int> freeLocations)
         {
-            return freeLocations[Random.Shared.Next(0, freeLocations.Count - 1)];
+            return freeLocations[Random.Shared.Next(freeLocations.Count)];
         }
     }
 }

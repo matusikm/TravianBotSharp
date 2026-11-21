@@ -60,7 +60,6 @@ public sealed class ChromeBrowser(IDbContextFactory<AppDbContext> contextFactory
             UserAgent = string.IsNullOrEmpty(setting.UserAgent) ? null : setting.UserAgent,
             Args =
             [
-                "--ignore-certificate-errors",
                 "--no-default-browser-check",
                 "--no-first-run",
                 "--ash-no-nudges",

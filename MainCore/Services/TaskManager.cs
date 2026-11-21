@@ -32,38 +32,43 @@ public sealed class TaskManager(RxQueue rxQueue)
 
     public void Add<T>(T task, bool first = false) where T : AccountTask
     {
-        var taskList = GetTaskList(task.AccountId);
-        var existingTask = taskList.OfType<T>().FirstOrDefault(x => x.Key == task.Key);
-        if (existingTask is not null)
-        {
-            if (existingTask.ExecuteAt > task.ExecuteAt)
-            {
-                Remove(existingTask.AccountId, existingTask);
-            }
-            else
-            {
-                if (first)
-                {
-                    var firstTask = taskList.OrderBy(x => x.ExecuteAt).FirstOrDefault();
-                    if (firstTask is not null)
-                    {
-                        task.ExecuteAt = firstTask.ExecuteAt.AddHours(-1);
+        var actor = GetActor(task.AccountId);
 
-                        if (existingTask.ExecuteAt > task.ExecuteAt)
-                        {
-                            Remove(existingTask.AccountId, existingTask);
-                        }
-                    }
+        // Check-then-add must be atomic, or two callers can both add the same task.
+        lock (actor.SyncRoot)
+        {
+            var taskList = actor.Tasks;
+            var existingTask = taskList.OfType<T>().FirstOrDefault(x => x.Key == task.Key);
+            if (existingTask is not null)
+            {
+                if (existingTask.ExecuteAt > task.ExecuteAt)
+                {
+                    actor.Remove(existingTask);
                 }
                 else
                 {
-                    return;
+                    if (first)
+                    {
+                        var firstTask = taskList.OrderBy(x => x.ExecuteAt).FirstOrDefault();
+                        if (firstTask is not null)
+                        {
+                            task.ExecuteAt = firstTask.ExecuteAt.AddHours(-1);
+
+                            if (existingTask.ExecuteAt > task.ExecuteAt)
+                            {
+                                actor.Remove(existingTask);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        return;
+                    }
                 }
             }
-        }
 
-        var actor = GetActor(task.AccountId);
-        actor.Add(task, first);
+            actor.Add(task, first);
+        }
     }
 
     public bool IsExist<T>(AccountId accountId) where T : BaseTask
@@ -104,6 +109,7 @@ public sealed class TaskManager(RxQueue rxQueue)
         actor.Clear();
     }
 
+    /// <summary>A snapshot of the account's tasks.</summary>
     public List<BaseTask> GetTaskList(AccountId accountId)
     {
         var actor = GetActor(accountId);

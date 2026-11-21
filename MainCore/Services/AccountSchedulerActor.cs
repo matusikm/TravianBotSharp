@@ -1,21 +1,47 @@
 namespace MainCore.Services
 {
+    /// <summary>
+    /// Holds one account's task list and run state. The list is touched by the UI thread,
+    /// the account's scheduler loop and task handlers at the same time, so every access
+    /// goes through <see cref="SyncRoot"/> and readers get snapshots.
+    /// </summary>
     public sealed class AccountSchedulerActor(AccountId accountId, RxQueue rxQueue)
     {
+        private readonly List<BaseTask> _tasks = [];
+
+        /// <summary>Lock that guards the task list. Re-entrant, so callers can group several calls.</summary>
+        public object SyncRoot { get; } = new();
+
         public bool IsExecuting { get; set; } = false;
         public StatusEnums Status { get; set; } = StatusEnums.Offline;
         public CancellationTokenSource? CancellationTokenSource { get; set; }
-        public List<BaseTask> Tasks { get; } = [];
+
+        /// <summary>A snapshot of the current tasks. Safe to enumerate while the list changes.</summary>
+        public List<BaseTask> Tasks
+        {
+            get
+            {
+                lock (SyncRoot)
+                {
+                    return [.. _tasks];
+                }
+            }
+        }
 
         private void AddTask(BaseTask task, bool first)
         {
-            if (first)
+            lock (SyncRoot)
             {
-                var firstTask = Tasks.OrderBy(x => x.ExecuteAt).FirstOrDefault();
-                if (firstTask is not null)
+                if (first)
                 {
-                    task.ExecuteAt = firstTask.ExecuteAt.AddHours(-1);
+                    var firstTask = _tasks.OrderBy(x => x.ExecuteAt).FirstOrDefault();
+                    if (firstTask is not null)
+                    {
+                        task.ExecuteAt = firstTask.ExecuteAt.AddHours(-1);
+                    }
                 }
+
+                _tasks.Add(task);
             }
 
             if (task is VillageTask villageTask)
@@ -23,7 +49,6 @@ namespace MainCore.Services
                 rxQueue.Enqueue(new VillageTaskAdded(villageTask));
             }
 
-            Tasks.Add(task);
             rxQueue.Enqueue(new TasksModified(accountId));
         }
 
@@ -34,31 +59,42 @@ namespace MainCore.Services
 
         public void Remove(BaseTask task)
         {
-            Tasks.Remove(task);
+            lock (SyncRoot)
+            {
+                _tasks.Remove(task);
+            }
             rxQueue.Enqueue(new TasksModified(accountId));
         }
 
         public void Remove<T>() where T : AccountTask
         {
-            var task = Tasks.OfType<T>().FirstOrDefault(x => x.AccountId == accountId);
-            if (task is null) return;
+            lock (SyncRoot)
+            {
+                var task = _tasks.OfType<T>().FirstOrDefault(x => x.AccountId == accountId);
+                if (task is null) return;
 
-            Tasks.Remove(task);
+                _tasks.Remove(task);
+            }
         }
 
         public void Remove<T>(VillageId villageId) where T : VillageTask
         {
-            var task = Tasks.OfType<T>().FirstOrDefault(x => x.AccountId == accountId && x.VillageId == villageId);
-            if (task is null) return;
+            lock (SyncRoot)
+            {
+                var task = _tasks.OfType<T>().FirstOrDefault(x => x.AccountId == accountId && x.VillageId == villageId);
+                if (task is null) return;
 
-            Tasks.Remove(task);
+                _tasks.Remove(task);
+            }
         }
 
         public void Clear()
         {
-            if (Tasks.Count == 0) return;
-
-            Tasks.Clear();
+            lock (SyncRoot)
+            {
+                if (_tasks.Count == 0) return;
+                _tasks.Clear();
+            }
             rxQueue.Enqueue(new TasksModified(accountId));
         }
 
