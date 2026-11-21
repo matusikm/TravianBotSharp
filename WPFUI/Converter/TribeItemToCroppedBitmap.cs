@@ -14,9 +14,7 @@ namespace WPFUI.Converter
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (value is not TribeItem item) return null;
-            var path = item.ImageSource;
-
-            if (path is null) return null;
+            var path = $"pack://application:,,,/Resources/{item.ImageFile}";
 
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
