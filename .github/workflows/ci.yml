@@ -1,4 +1,4 @@
-name: Linux
+name: CI
 
 on:
   pull_request:
@@ -13,16 +13,27 @@ permissions:
   contents: read
 
 concurrency:
-  group: linux-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-and-test:
-    name: Build Avalonia and run tests
-    runs-on: ubuntu-24.04
+    name: Build and test (${{ matrix.rid }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: windows-2025
+            rid: win-x64
+          - os: macos-15
+            rid: osx-arm64
+    runs-on: ${{ matrix.os }}
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+      AVALONIA_TELEMETRY_OPTOUT: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,18 +45,11 @@ jobs:
           cache: true
           cache-dependency-path: "**/packages.lock.json"
 
-      # WPFUI only builds on Windows, so restore the Linux projects explicitly.
       - name: Restore
-        run: |
-          dotnet restore AvaloniaUI --locked-mode
-          dotnet restore MainCore.Test --locked-mode
-          dotnet restore AvaloniaUI.Test --locked-mode
+        run: dotnet restore TravBotSharp.sln --locked-mode
 
       - name: Build
-        run: |
-          dotnet build AvaloniaUI -c Release --no-restore
-          dotnet build MainCore.Test -c Release --no-restore
-          dotnet build AvaloniaUI.Test -c Release --no-restore
+        run: dotnet build TravBotSharp.sln -c Release --no-restore
 
       # Parser tests drive the runner's preinstalled Google Chrome through Patchright.
       - name: Test
@@ -55,18 +59,13 @@ jobs:
       - name: Test views
         run: dotnet test --project AvaloniaUI.Test -c Release --no-build
 
-      - name: Publish linux-x64
-        run: >
-          dotnet publish AvaloniaUI
-          -c Release
-          -r linux-x64
-          --self-contained
-          -o publish/TBS-linux-x64
+      - name: Publish ${{ matrix.rid }}
+        run: dotnet publish AvaloniaUI -c Release -r ${{ matrix.rid }} --self-contained -o publish/TBS-${{ matrix.rid }}
 
       - name: Upload build
         uses: actions/upload-artifact@v7
         with:
-          name: TBS-linux-x64
-          path: publish/TBS-linux-x64/
+          name: TBS-${{ matrix.rid }}
+          path: publish/TBS-${{ matrix.rid }}/
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3

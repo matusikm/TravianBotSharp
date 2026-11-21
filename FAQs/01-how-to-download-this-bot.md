@@ -2,10 +2,10 @@
 
 ## step-by-step
 
-1. Go to [https://github.com/vinaghost/TravianBotSharp/releases/latest](https://github.com/vinaghost/TravianBotSharp/releases/latest).
-2. In Assets section, find zip package for the latest release.
-3. Download the zip package for the latest release.
-4. Extract the downloaded file to a folder you can easily find (for example: `D:\TBS`).
+1. Open the **Releases** page of this repository and pick the latest release.
+2. In the Assets section, find the package for your system: `win-x64.zip` for Windows, `osx-arm64.zip` (Apple Silicon) or `osx-x64.zip` (Intel) for macOS, `.deb` or `linux-x64.tar.gz` for Ubuntu.
+3. Download it.
+4. Windows: extract it to a folder you can easily find (for example: `D:\TBS`). macOS: move **TravianBotSharp** to Applications. Ubuntu: see the main README.
 
 ## tips
 

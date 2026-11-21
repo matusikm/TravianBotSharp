@@ -9,11 +9,10 @@
 
 ## Quick start
 
-1. Download TBS from **GitHub Releases**.
-2. Extract files to a local folder.
-3. Make sure you are on **Windows** and using the **latest Google Chrome**.
-4. Run `TravianBotSharp.exe`.
-5. Add your account and start setup.
+1. Install the **latest Google Chrome**.
+2. Download TBS for your system from **GitHub Releases**: Windows (zip), macOS (Apple Silicon or Intel zip) or Ubuntu (.deb or tarball).
+3. Windows: extract the zip and run `TravianBotSharp.exe`. macOS and Ubuntu: see below.
+4. Add your account and start setup.
 
 ## Main features
 
@@ -38,10 +37,16 @@ These settings change when and how the bot acts, so its activity looks less mech
 
 ## Tech specification
 
-TBS has two desktop front ends that share the same bot core (`MainCore`):
+- `MainCore`: the bot itself (Patchright-driven Chrome, database, tasks, view models).
+- `AvaloniaUI`: the desktop app, one UI for Windows, macOS and Linux.
 
-- `WPFUI`: the original Windows app.
-- `AvaloniaUI`: a cross-platform app for Linux (tested on Ubuntu) and Windows.
+The original Windows-only WPF app (`WPFUI`) was removed; the Avalonia app has the same screens. To move from it, copy `TBS.db` and `Data` from the old folder into the new one.
+
+## Running on macOS
+
+Download `TravianBotSharp-<version>-osx-arm64.zip` (Apple Silicon) or `-osx-x64.zip` (Intel), open it and move **TravianBotSharp** to Applications. Install Google Chrome into Applications too.
+The app is signed ad hoc but not notarized by Apple, so macOS blocks the first launch: open **System Settings > Privacy & Security** and click **Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/TravianBotSharp.app`.
+The database, logs and Chrome profiles are kept in `~/Library/Application Support/TravianBotSharp`.
 
 ## Running on Linux (Ubuntu)
 
@@ -62,10 +67,10 @@ dotnet publish AvaloniaUI -c Release -r linux-x64 --self-contained -o ~/tbs
 ~/tbs/TravianBotSharp
 ```
 
-Account and proxy passwords are encrypted in `TBS.db`. On Windows the key is your Windows user (DPAPI); on Linux it is `~/.config/TravianBotSharp/secret.key`, readable only by you. If you move `TBS.db` to another computer or user, or delete that key, re-enter the passwords.
+Account and proxy passwords are encrypted in `TBS.db`. On Windows the key is your Windows user (DPAPI); on Linux and macOS it is `~/.config/TravianBotSharp/secret.key`, readable only by you. If you move `TBS.db` to another computer or user, or delete that key, re-enter the passwords.
 For development, `dotnet run --project AvaloniaUI` works too.
 Run the tests with `dotnet test --project MainCore.Test` (they need Google Chrome installed).
-To publish a Linux release, push a tag like `1.2.0` or run the **Release (Linux)** workflow from the Actions tab with a version; it builds the tarball and `.deb`, checks that they install and start on Ubuntu 26.04, and attaches them to a GitHub Release.
+To publish a release, push a tag like `1.2.0` or run the **Release** workflow from the Actions tab with a version. It builds the Linux tarball and `.deb`, the Windows zip and the macOS zips, checks that they start (Ubuntu 26.04, Windows, Apple Silicon), attaches them to a GitHub Release and deletes releases older than the newest 5.
 After changing an entity, add a migration with `dotnet tool restore` and `dotnet ef migrations add <Name> --project MainCore --output-dir Infrasturecture/Migrations`.
 
 ## FAQs
