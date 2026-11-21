@@ -34,17 +34,7 @@ namespace MainCore.UI.ViewModels
                 CheckDriver();
 
                 using var context = contextFactory.CreateDbContext();
-                var notExist = context.Database.EnsureCreated();
-
-                if (!notExist)
-                {
-                    context.FillAccountSettings();
-                    context.FillVillageSettings();
-
-                    context.QueueBuildings
-                        .Where(x => x.Level == -1)
-                        .ExecuteDelete();
-                }
+                DatabaseInitializer.Initialize(context);
             }, RxSchedulers.TaskpoolScheduler);
 
             waitingOverlayViewModel.ChangeMessage("loading program layout");
