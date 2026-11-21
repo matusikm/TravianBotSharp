@@ -7,7 +7,7 @@ namespace MainCore.UI.ViewModels.Abstract
     public abstract partial class AccountTabViewModelBase : TabViewModelBase
     {
         [ObservableAsProperty]
-        private AccountId _accountId;
+        public partial AccountId AccountId { get; }
 
         protected SelectedItemStore _selectedItemStore;
 

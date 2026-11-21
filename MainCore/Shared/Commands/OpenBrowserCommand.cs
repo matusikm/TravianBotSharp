@@ -130,11 +130,11 @@ public sealed partial class OpenBrowserCommand(
     {
         foreach (var proxy in proxies)
         {
-            var client = GetHttpClient(proxy);
+            using var client = CreateHttpClient(proxy);
             logger.Information("Checking proxy {Proxy}, last used {LastUsed}", proxy, proxy.LastUsed);
             try
             {
-                var response = await client.GetAsync(TRAVIAN_PAGE);
+                using var response = await client.GetAsync(TRAVIAN_PAGE);
                 if (response.IsSuccessStatusCode)
                 {
                     logger.Information("Access {Proxy} is good", proxy);
@@ -152,51 +152,41 @@ public sealed partial class OpenBrowserCommand(
         return null;
     }
 
-    private static readonly NetworkCredential _networkCredential = new();
-
-    private static readonly WebProxy _proxyWithAuth = new()
-    {
-        Credentials = _networkCredential,
-    };
-
-    private static readonly WebProxy _proxyWithoutAuth = new();
-
-    private static readonly HttpClient _proxyWithoutAuthHttpClient = new(new HttpClientHandler()
-    {
-        Proxy = _proxyWithoutAuth,
-        UseProxy = true,
-    });
-
-    private static readonly HttpClient _proxyWithAuthHttpClient = new(new HttpClientHandler()
-    {
-        Proxy = _proxyWithAuth,
-        UseProxy = true,
-    });
-
-    private static readonly HttpClient _defaultHttpClient = new(new HttpClientHandler()
-    {
-        UseProxy = false,
-    });
+    private static readonly TimeSpan ProxyCheckTimeout = TimeSpan.FromSeconds(15);
 
     private const string TRAVIAN_PAGE = "https://www.travian.com/international";
 
-    private static HttpClient GetHttpClient(AccessDto access)
+    // Each check gets its own handler and proxy object. A shared static proxy was
+    // overwritten per account, so two accounts starting together could check through
+    // each other's proxy and send one account's proxy password to another proxy.
+    public static HttpClientHandler CreateHttpClientHandler(AccessDto access)
     {
-        if (string.IsNullOrEmpty(access.ProxyHost)) return _defaultHttpClient;
-
-#pragma warning disable S5332 // Clear-text protocols should not be used
-        var proxyUrl = $"http://{access.ProxyHost}:{access.ProxyPort}";
-#pragma warning restore S5332 // Clear-text protocols should not be used
-
-        if (string.IsNullOrEmpty(access.ProxyUsername))
+        if (string.IsNullOrEmpty(access.ProxyHost))
         {
-            _proxyWithoutAuth.Address = new Uri(proxyUrl);
-            return _proxyWithoutAuthHttpClient;
+            return new HttpClientHandler { UseProxy = false };
         }
 
-        _networkCredential.UserName = access.ProxyUsername;
-        _networkCredential.Password = access.ProxyPassword;
-        _proxyWithAuth.Address = new Uri(proxyUrl);
-        return _proxyWithAuthHttpClient;
+#pragma warning disable S5332 // Clear-text protocols should not be used
+        var proxy = new WebProxy(new Uri($"http://{access.ProxyHost}:{access.ProxyPort}"));
+#pragma warning restore S5332 // Clear-text protocols should not be used
+
+        if (!string.IsNullOrEmpty(access.ProxyUsername))
+        {
+            proxy.Credentials = new NetworkCredential(access.ProxyUsername, access.ProxyPassword);
+        }
+
+        return new HttpClientHandler
+        {
+            Proxy = proxy,
+            UseProxy = true,
+        };
+    }
+
+    private static HttpClient CreateHttpClient(AccessDto access)
+    {
+        return new HttpClient(CreateHttpClientHandler(access), disposeHandler: true)
+        {
+            Timeout = ProxyCheckTimeout,
+        };
     }
 }
