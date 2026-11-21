@@ -18,6 +18,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Retry;
 
+using Serilog;
+
 namespace MainCore.Services;
 
 [RegisterSingleton<TimerManager>]
@@ -60,8 +62,7 @@ public sealed class TimerManager
                 var message = string.Join(Environment.NewLine, error.Result.Reasons.Select(e => e.Message));
                 if (!string.IsNullOrEmpty(message))
                 {
-                    browser.Logger.Warning("Task {TaskName} failed", taskName, message);
-                    browser.Logger.Warning("{Message}", message);
+                    browser.Logger.Warning("Task {TaskName} failed: {Message}", taskName, message);
                 }
             }
             await browser.Refresh();
@@ -104,33 +105,45 @@ public sealed class TimerManager
         task.Stage = StageEnums.Executing;
         _rxQueue.Enqueue(new TasksModified(accountId));
 
-        using var scope = _serviceScopeFactory.CreateScope();
+        IChromeBrowser browser;
+        Outcome<Result> poliResult;
+        try
+        {
+            using var scope = _serviceScopeFactory.CreateScope();
 
-        ///===========================================================///
-        var browser = _chromeManager.Get(accountId);
+            ///===========================================================///
+            browser = _chromeManager.Get(accountId);
 
-        var contextData = new ContextData(task.Description, browser);
+            var contextData = new ContextData(task.Description, browser);
 
-        ///===========================================================///
-        var resilienceContext = ResilienceContextPool.Shared.Get(cts.Token);
+            ///===========================================================///
+            var resilienceContext = ResilienceContextPool.Shared.Get(cts.Token);
+            try
+            {
+                resilienceContext.Properties.Set(contextDataKey, contextData);
 
-        resilienceContext.Properties.Set(contextDataKey, contextData);
+                poliResult = await _pipeline.ExecuteOutcomeAsync(
+                    async (ctx, state) => Outcome.FromResult(await scope.Execute(state, ctx.CancellationToken)),
+                    resilienceContext,
+                    task);
+            }
+            finally
+            {
+                ResilienceContextPool.Shared.Return(resilienceContext);
+            }
+            ///===========================================================///
+        }
+        finally
+        {
+            // Always hand the task back, or StopCurrentTask waits forever for it.
+            task.Stage = StageEnums.Waiting;
+            _rxQueue.Enqueue(new TasksModified(accountId));
 
-        var poliResult = await _pipeline.ExecuteOutcomeAsync(
-            async (ctx, state) => Outcome.FromResult(await scope.Execute(state, ctx.CancellationToken)),
-            resilienceContext,
-            task);
+            actor.IsExecuting = false;
 
-        ResilienceContextPool.Shared.Return(resilienceContext);
-        ///===========================================================///
-
-        task.Stage = StageEnums.Waiting;
-        _rxQueue.Enqueue(new TasksModified(accountId));
-
-        actor.IsExecuting = false;
-
-        cts.Dispose();
-        actor.CancellationTokenSource = null;
+            actor.CancellationTokenSource = null;
+            cts.Dispose();
+        }
 
         if (poliResult.Exception is not null)
         {
@@ -228,6 +241,12 @@ public sealed class TimerManager
                 {
                     break;
                 }
+                catch (Exception ex)
+                {
+                    // An unexpected error must not end the loop: the account would look Online
+                    // but never run again, and Start() would refuse to restart it.
+                    await HandleLoopError(accountId, ex);
+                }
             }
 
             if (_loops.TryRemove(accountId, out var ownedCancellationTokenSource))
@@ -235,6 +254,24 @@ public sealed class TimerManager
                 ownedCancellationTokenSource.Dispose();
             }
         }, cancellationTokenSource.Token);
+    }
+
+    /// <summary>True while the account's scheduler loop is running.</summary>
+    public bool IsRunning(AccountId accountId) => _loops.ContainsKey(accountId);
+
+    private async Task HandleLoopError(AccountId accountId, Exception ex)
+    {
+        try
+        {
+            Log.ForContext("AccountId", accountId)
+                .Error(ex, "Unexpected error in the task loop. Bot is pausing: {Message}", ex.Message);
+            _taskManager.SetStatus(accountId, StatusEnums.Paused);
+            await Task.Delay(1000);
+        }
+        catch
+        {
+            // Logging or status updates failing must not kill the loop either.
+        }
     }
 
     public record ContextData(string TaskName, IChromeBrowser Browser);

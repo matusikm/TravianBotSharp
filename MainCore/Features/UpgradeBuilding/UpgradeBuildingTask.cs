@@ -83,14 +83,8 @@ public sealed partial class UpgradeBuildingTask(
                     (_, isFailed, errors) = CheckPrerequisite(task.VillageId, plan);
                     if (isFailed)
                     {
-                        var nextExecuteErrors = upgradeErrors.OfType<UpgradeErrorNextExecute>().ToList();
-                        if (nextExecuteErrors.Count > 0)
-                        {
-                            var nextExecuteError = nextExecuteErrors.OrderBy(x => x.NextExecute).First();
-                            return ReSchedule.Error(nextExecuteError.NextExecute);
-                        }
-
-                        return Stop.Error;
+                        // Use the prerequisite check's own errors: they say when the prerequisite finishes.
+                        return RescheduleOrStop(errors);
                     }
 
                     // continue
@@ -175,6 +169,19 @@ public sealed partial class UpgradeBuildingTask(
             && x.Location == -1
             && x.Type == plan.Type
             && x.Level >= plan.Level);
+    }
+
+    /// <summary>
+    /// Reschedules at the earliest time any error says it can continue, otherwise stops.
+    /// </summary>
+    public static Result RescheduleOrStop(IEnumerable<IError> errors)
+    {
+        var nextExecute = errors
+            .OfType<UpgradeErrorNextExecute>()
+            .Select(x => (DateTime?)x.NextExecute)
+            .Min();
+
+        return nextExecute is null ? Stop.Error : ReSchedule.Error(nextExecute.Value);
     }
 
     private Result CheckPrerequisite(VillageId villageId, NormalBuildPlan plan)
