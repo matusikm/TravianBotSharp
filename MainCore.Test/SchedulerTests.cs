@@ -73,12 +73,14 @@ public class SchedulerTests
 
         var rxQueue = CreateRxQueue();
         var taskManager = new TaskManager(rxQueue);
+        var settingCache = new AccountSettingCache(contextFactory);
         var timerManager = new TimerManager(
             taskManager,
             Substitute.For<IServiceScopeFactory>(),
             rxQueue,
-            contextFactory,
-            new ChromeManager(contextFactory));
+            settingCache,
+            new ChromeManager(contextFactory, settingCache),
+            TimeProvider.System);
 
         var task = new SleepTask.Task(Account) { ExecuteAt = DateTime.Now.AddSeconds(-1) };
         taskManager.Add(task);
