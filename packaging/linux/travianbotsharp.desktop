@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=TravianBotSharp
+GenericName=Travian bot
+Comment=Play Travian accounts automatically through Google Chrome
+Exec=travianbotsharp
+Icon=travianbotsharp
+Terminal=false
+Categories=Game;StrategyGame;
+Keywords=travian;bot;tbs;
+StartupWMClass=TravianBotSharp

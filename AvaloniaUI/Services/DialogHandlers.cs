@@ -4,6 +4,7 @@ using Avalonia.Threading;
 
 using AvaloniaUI.Views;
 
+using MainCore;
 using MainCore.Services;
 
 using ReactiveUI.Primitives;
@@ -69,7 +70,7 @@ namespace AvaloniaUI.Services
             {
                 AllowMultiple = false,
                 FileTypeFilter = TbsFileTypes,
-                SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(AppContext.BaseDirectory),
+                SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(AppPaths.DataDirectory),
             });
             return files.Count == 0 ? "" : files[0].TryGetLocalPath() ?? "";
         }
@@ -82,7 +83,7 @@ namespace AvaloniaUI.Services
             {
                 FileTypeChoices = TbsFileTypes,
                 DefaultExtension = "tbs",
-                SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(AppContext.BaseDirectory),
+                SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(AppPaths.DataDirectory),
             });
             return file?.TryGetLocalPath() ?? "";
         }
