@@ -23,9 +23,11 @@ namespace MainCore.UI.ViewModels.Tabs
         private readonly IValidator<AccountSettingInput> _accountsettingInputValidator;
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
         private readonly TaskManager _taskManager;
+        private readonly AccountSettingCache _settingCache;
 
-        public AccountSettingViewModel(DialogService dialogService, IValidator<AccountSettingInput> accountsettingInputValidator, IDbContextFactory<AppDbContext> contextFactory, TaskManager taskManager, SelectedItemStore selectedItemStore) : base(dialogService, selectedItemStore)
+        public AccountSettingViewModel(DialogService dialogService, IValidator<AccountSettingInput> accountsettingInputValidator, IDbContextFactory<AppDbContext> contextFactory, TaskManager taskManager, SelectedItemStore selectedItemStore, AccountSettingCache settingCache) : base(dialogService, selectedItemStore)
         {
+            _settingCache = settingCache;
             _accountsettingInputValidator = accountsettingInputValidator;
             _contextFactory = contextFactory;
             _taskManager = taskManager;
@@ -195,17 +197,7 @@ namespace MainCore.UI.ViewModels.Tabs
 
         private void SaveSetting(AccountId accountId, Dictionary<AccountSettingEnums, int> settings)
         {
-            settings.Remove(AccountSettingEnums.Tribe);
-
-            if (settings.Count == 0) return;
-            using var context = _contextFactory.CreateDbContext();
-            foreach (var setting in settings)
-            {
-                context.AccountsSetting
-                    .Where(x => x.AccountId == accountId.Value)
-                    .Where(x => x.Setting == setting.Key)
-                    .ExecuteUpdate(x => x.SetProperty(x => x.Value, setting.Value));
-            }
+            _settingCache.Save(accountId, settings);
         }
     }
 }

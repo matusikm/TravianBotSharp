@@ -24,6 +24,7 @@ namespace MainCore.UI.ViewModels.Tabs
 
         private readonly IValidator<AccountSettingInput> _accountsettingInputValidator;
         private readonly IDbContextFactory<AppDbContext> _contextFactory;
+        private readonly AccountSettingCache _settingCache;
         private readonly TaskManager _taskManager;
 
         private static readonly Dictionary<SplatColor, string> _activeTexts = new()
@@ -33,8 +34,9 @@ namespace MainCore.UI.ViewModels.Tabs
             { SplatColor.Black , "No farmlist selected" },
         };
 
-        public FarmingViewModel(DialogService dialogService, IValidator<AccountSettingInput> accountsettingInputValidator, TaskManager taskManager, RxQueue rxQueue, IDbContextFactory<AppDbContext> contextFactory, SelectedItemStore selectedItemStore) : base(dialogService, selectedItemStore)
+        public FarmingViewModel(DialogService dialogService, IValidator<AccountSettingInput> accountsettingInputValidator, TaskManager taskManager, RxQueue rxQueue, IDbContextFactory<AppDbContext> contextFactory, SelectedItemStore selectedItemStore, AccountSettingCache settingCache) : base(dialogService, selectedItemStore)
         {
+            _settingCache = settingCache;
             _accountsettingInputValidator = accountsettingInputValidator;
             _taskManager = taskManager;
             _contextFactory = contextFactory;
@@ -213,17 +215,7 @@ namespace MainCore.UI.ViewModels.Tabs
 
         private void SaveSetting(AccountId accountId, Dictionary<AccountSettingEnums, int> settings)
         {
-            settings.Remove(AccountSettingEnums.Tribe);
-
-            if (settings.Count == 0) return;
-            using var context = _contextFactory.CreateDbContext();
-            foreach (var setting in settings)
-            {
-                context.AccountsSetting
-                    .Where(x => x.AccountId == accountId.Value)
-                    .Where(x => x.Setting == setting.Key)
-                    .ExecuteUpdate(x => x.SetProperty(x => x.Value, setting.Value));
-            }
+            _settingCache.Save(accountId, settings);
         }
     }
 }

@@ -5,7 +5,7 @@ using Serilog;
 namespace MainCore.Services;
 
 [RegisterSingleton<ChromeManager>]
-public sealed class ChromeManager(IDbContextFactory<AppDbContext> contextFactory)
+public sealed class ChromeManager(IDbContextFactory<AppDbContext> contextFactory, AccountSettingCache settingCache)
 {
     private readonly ConcurrentDictionary<AccountId, IChromeBrowser> _dictionary = new();
 
@@ -19,7 +19,7 @@ public sealed class ChromeManager(IDbContextFactory<AppDbContext> contextFactory
 
     private ChromeBrowser Create(AccountId accountId)
     {
-        var browser = new ChromeBrowser(contextFactory);
+        var browser = new ChromeBrowser(settingCache);
         browser.SetAccountId(accountId);
         browser.Logger = Log
             .ForContext("Account", GetAccountData(accountId))
