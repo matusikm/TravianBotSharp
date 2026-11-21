@@ -8,6 +8,7 @@ namespace MainCore.Services
     public sealed class AccountSchedulerActor(AccountId accountId, RxQueue rxQueue)
     {
         private readonly List<BaseTask> _tasks = [];
+        private TaskCompletionSource _changed = NewSignal();
 
         /// <summary>Lock that guards the task list. Re-entrant, so callers can group several calls.</summary>
         public object SyncRoot { get; } = new();
@@ -28,6 +29,16 @@ namespace MainCore.Services
             }
         }
 
+        /// <summary>
+        /// Completes the next time tasks or status change. The scheduler loop waits on this
+        /// (or the next due time) instead of polling.
+        /// </summary>
+        public Task WaitForChangeAsync() => Volatile.Read(ref _changed).Task;
+
+        private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private void NotifyChanged() => Interlocked.Exchange(ref _changed, NewSignal()).TrySetResult();
+
         private void AddTask(BaseTask task, bool first)
         {
             lock (SyncRoot)
@@ -43,6 +54,7 @@ namespace MainCore.Services
 
                 _tasks.Add(task);
             }
+            NotifyChanged();
 
             if (task is VillageTask villageTask)
             {
@@ -63,6 +75,7 @@ namespace MainCore.Services
             {
                 _tasks.Remove(task);
             }
+            NotifyChanged();
             rxQueue.Enqueue(new TasksModified(accountId));
         }
 
@@ -75,6 +88,7 @@ namespace MainCore.Services
 
                 _tasks.Remove(task);
             }
+            NotifyChanged();
         }
 
         public void Remove<T>(VillageId villageId) where T : VillageTask
@@ -86,6 +100,7 @@ namespace MainCore.Services
 
                 _tasks.Remove(task);
             }
+            NotifyChanged();
         }
 
         public void Clear()
@@ -95,12 +110,14 @@ namespace MainCore.Services
                 if (_tasks.Count == 0) return;
                 _tasks.Clear();
             }
+            NotifyChanged();
             rxQueue.Enqueue(new TasksModified(accountId));
         }
 
         public void SetStatus(StatusEnums status)
         {
             Status = status;
+            NotifyChanged();
             rxQueue.Enqueue(new StatusModified(accountId, status));
         }
     }
