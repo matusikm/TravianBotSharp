@@ -74,13 +74,14 @@ public static class SecretProtection
     }
 }
 
-[SupportedOSPlatform("windows")]
+/// <summary>DPAPI for the current Windows user. Only constructed on Windows.</summary>
 public sealed class DpapiSecretProtector : ISecretProtector
 {
     public const string Prefix = "dpapi:v1:";
 
     private static readonly byte[] Entropy = "TravianBotSharp.Secrets"u8.ToArray();
 
+    [SupportedOSPlatform("windows")]
     public string Protect(string plaintext)
     {
         if (string.IsNullOrEmpty(plaintext) || SecretProtection.IsProtected(plaintext)) return plaintext;
@@ -89,6 +90,7 @@ public sealed class DpapiSecretProtector : ISecretProtector
         return Prefix + Convert.ToBase64String(cipher);
     }
 
+    [SupportedOSPlatform("windows")]
     public string Unprotect(string stored)
     {
         if (string.IsNullOrEmpty(stored) || !stored.StartsWith(Prefix, StringComparison.Ordinal)) return stored;
