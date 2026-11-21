@@ -4,15 +4,21 @@ name: Release
 # Intel .app zips), smoke-tests each one and publishes them together as a GitHub Release.
 # Only the newest 5 releases are kept; older releases and their tags are deleted.
 #
-# It only runs by hand: Actions > Release > Run workflow, then type a version.
+# It only runs by hand: Actions > Release > Run workflow, then pick patch, minor or major.
+# The version is the latest X.Y.Z tag with that part raised (0.0.9 + minor = 0.1.0).
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Version to release, like 1.2.0. The tag is created on the branch you run this from."
+      bump:
+        description: "Which part of the version to raise. The new version is the latest X.Y.Z tag with this part increased."
         required: true
-        type: string
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
       publish:
         description: "Publish the GitHub Release. Untick for a dry run that only builds and smoke-tests the packages."
         required: false
@@ -43,15 +49,23 @@ jobs:
       - name: Get version
         id: version
         env:
-          INPUT_VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          tag=$INPUT_VERSION
-          if [[ ! $tag =~ ^v?([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            echo "::error::Version '$tag' must look like 1.2.0 or v1.2.0"
-            exit 1
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=${BASH_REMATCH[1]}" >> "$GITHUB_OUTPUT"
+          latest=$(gh api "repos/$GH_REPO/tags" --paginate --jq '.[].name' |
+            sed -nE 's/^v?([0-9]+\.[0-9]+\.[0-9]+)$/\1/p' | sort -V | tail -n 1)
+          IFS=. read -r major minor patch <<< "${latest:-0.0.0}"
+          case "$BUMP" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+            *) echo "::error::Unknown bump '$BUMP'"; exit 1 ;;
+          esac
+          version="$major.$minor.$patch"
+          echo "Latest tag: ${latest:-none}, new version: $version"
+          echo "tag=$version" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   linux:
     name: Build linux-x64
