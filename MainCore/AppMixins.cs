@@ -3,6 +3,8 @@ using FluentValidation;
 using MainCore.Features.Update;
 using MainCore.Shared.Behaviors;
 
+using Microsoft.Data.Sqlite;
+
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -32,14 +34,18 @@ namespace MainCore
                     .WriteTo.Map("Account", "Other", (acc, wt) =>
                     {
                         wt.File(new ExpressionTemplate("[{@t:HH:mm:ss} {@l:u3}{#if SourceContext is not null} ({SourceContext}){#end}] {@m}\n{@x}"),
-                            path: $"./logs/log-{acc}-.txt",
+                            path: Path.Combine(AppPaths.DataDirectory, "logs", $"log-{acc}-.txt"),
                             rollingInterval: RollingInterval.Day);
                         wt.LogSink();
                     })
                     .Enrich.FromLogContext());
             });
 
-        private const string _connectionString = "DataSource=TBS.db;Cache=Shared";
+        private static readonly string _connectionString = new SqliteConnectionStringBuilder
+        {
+            DataSource = Path.Combine(AppPaths.DataDirectory, "TBS.db"),
+            Cache = SqliteCacheMode.Shared,
+        }.ToString();
 
         private static IHostBuilder ConfigureDbContext(this IHostBuilder hostBuilder) =>
             hostBuilder.ConfigureServices((hostContext, services) =>

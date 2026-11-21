@@ -95,7 +95,7 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
 
     private static string GetPathUserData(ChromeSetting setting)
     {
-        var pathUserData = Path.Combine(AppContext.BaseDirectory, "Data", "Cache", setting.ProfilePath);
+        var pathUserData = Path.Combine(AppPaths.DataDirectory, "Data", "Cache", setting.ProfilePath);
         if (!Directory.Exists(pathUserData)) Directory.CreateDirectory(pathUserData);
         pathUserData = Path.Combine(pathUserData, string.IsNullOrEmpty(setting.ProxyHost) ? "default" : setting.ProxyHost);
         return pathUserData;
@@ -142,7 +142,7 @@ public sealed class ChromeBrowser(AccountSettingCache settingCache) : IChromeBro
             return "";
         }
 
-        var fileName = Path.Combine(AppContext.BaseDirectory, "Screenshots", $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
+        var fileName = Path.Combine(AppPaths.DataDirectory, "Screenshots", $"{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
         Directory.CreateDirectory(Path.GetDirectoryName(fileName)!);
         await File.WriteAllBytesAsync(fileName, screenshot ?? [], CancellationToken.None);
         return fileName;

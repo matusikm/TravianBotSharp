@@ -182,7 +182,7 @@ namespace MainCore.UI.ViewModels.Tabs
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = Path.Combine(AppContext.BaseDirectory, "logs"),
+                FileName = Path.Combine(AppPaths.DataDirectory, "logs"),
                 UseShellExecute = true
             });
         }

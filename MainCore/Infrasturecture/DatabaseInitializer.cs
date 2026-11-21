@@ -86,7 +86,7 @@ public static class DatabaseInitializer
             File.SetUnixFileMode(dbPath, ownerFile);
         }
 
-        var dataDirectory = Path.Combine(AppContext.BaseDirectory, "Data");
+        var dataDirectory = Path.Combine(AppPaths.DataDirectory, "Data");
         if (Directory.Exists(dataDirectory))
         {
             File.SetUnixFileMode(dataDirectory, ownerDirectory);
