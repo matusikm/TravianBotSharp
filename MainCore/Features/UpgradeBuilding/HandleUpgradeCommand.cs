@@ -108,9 +108,24 @@ public sealed partial class UpgradeCommand(ILogger logger)
             return Retry.Error;
         }
 
-        await Wait(20_000, 32_000, cancellationToken);
-        return await browser.Wait(page.GetDorf(building));
+        // Travian goes back to the village by itself when the ad ends. Ads differ in length, so wait for that
+        // instead of guessing a fixed time, and give up after AdTimeout.
+        try
+        {
+            await page.GetDorf(building).WaitForAsync(new() { Timeout = (float)AdTimeout.TotalMilliseconds });
+        }
+        catch (TimeoutException)
+        {
+            browser.Logger.Information("Video did not finish within {Timeout} s.", AdTimeout.TotalSeconds);
+            return Retry.Error;
+        }
+
+        // A person doesn't react the instant the page changes.
+        await Wait(1_000, 4_000, cancellationToken);
+        return Result.Ok();
     }
+
+    private static readonly TimeSpan AdTimeout = TimeSpan.FromSeconds(90);
 
     private static Task Wait(int minMs, int maxMs, CancellationToken cancellationToken)
     {
