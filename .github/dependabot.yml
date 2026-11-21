@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      reactiveui:
+        patterns: ["ReactiveUI*", "Splat*", "CP.Extensions.Hosting.ReactiveUI*"]
+      avalonia:
+        patterns: ["Avalonia*", "Material.Icons.Avalonia"]
+      microsoft:
+        patterns: ["Microsoft.EntityFrameworkCore*", "Microsoft.Extensions*"]
+      tests:
+        patterns: ["xunit*", "Microsoft.NET.Test.Sdk", "coverlet*", "TngTech.ArchUnitNET*", "NSubstitute*", "Shouldly", "Bogus", "Serilog.Sinks.TestCorrelator"]
+    ignore:
+      # Stay on the .NET 10 LTS line; the 11.x packages require net11.0.
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Serilog.Extensions.Hosting"
+        update-types: ["version-update:semver-major"]
+      # CP.Extensions.Hosting.ReactiveUI.Wpf (WPFUI) caps ReactiveUI at 26 and Splat at 21.
+      - dependency-name: "ReactiveUI*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Splat*"
+        update-types: ["version-update:semver-major"]
+      # 1.0.0-beta07+ changed the attribute API used in AppDbContext.
+      - dependency-name: "StronglyTypedId"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

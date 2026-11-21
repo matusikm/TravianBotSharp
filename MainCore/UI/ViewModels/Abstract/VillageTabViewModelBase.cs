@@ -9,10 +9,10 @@ namespace MainCore.UI.ViewModels.Abstract
         protected readonly SelectedItemStore _selectedItemStore;
 
         [ObservableAsProperty]
-        private AccountId _accountId;
+        public partial AccountId AccountId { get; }
 
         [ObservableAsProperty]
-        private VillageId _villageId;
+        public partial VillageId VillageId { get; }
 
         protected VillageTabViewModelBase(DialogService dialogService, SelectedItemStore selectedItemStore) : base(dialogService)
         {

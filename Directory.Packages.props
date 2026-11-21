@@ -1,0 +1,73 @@
+<Project>
+  <!--
+    Central package versions for every project. Keep families in step:
+    - ReactiveUI, ReactiveUI.WPF/Drawing/Testing and ReactiveUI.Avalonia share one ReactiveUI version.
+      CP.Extensions.Hosting.ReactiveUI.Wpf 6.1.1 is built against ReactiveUI 26 / Splat 21, which caps both.
+    - Microsoft.EntityFrameworkCore.* and Microsoft.Extensions.* stay on 10.0.x to match the .NET 10 LTS
+      target (their 11.x lines require net11.0).
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <!-- MainCore -->
+  <ItemGroup>
+    <PackageVersion Include="FluentResults" Version="4.0.0" />
+    <PackageVersion Include="FluentValidation" Version="12.2.0" />
+    <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.2.0" />
+    <PackageVersion Include="Humanizer.Core" Version="3.0.10" />
+    <PackageVersion Include="Immediate.Handlers" Version="4.4.0" />
+    <PackageVersion Include="Injectio" Version="6.3.0" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.15" />
+    <PackageVersion Include="Patchright" Version="1.64.1" />
+    <PackageVersion Include="Polly" Version="8.9.1" />
+    <PackageVersion Include="ReactiveUI" Version="26.0.1" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="7.0.0" />
+    <PackageVersion Include="Serilog" Version="4.4.0" />
+    <PackageVersion Include="Serilog.Expressions" Version="5.0.0" />
+    <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Map" Version="2.0.0" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.37.0.15768" />
+    <PackageVersion Include="Splat" Version="21.0.0" />
+    <PackageVersion Include="Splat.Drawing" Version="21.0.0" />
+    <PackageVersion Include="Splat.Microsoft.Extensions.DependencyInjection" Version="21.0.0" />
+    <PackageVersion Include="StronglyTypedId" Version="1.0.0-beta06" />
+  </ItemGroup>
+
+  <!-- AvaloniaUI -->
+  <ItemGroup>
+    <PackageVersion Include="Avalonia" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.2" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+    <PackageVersion Include="Material.Icons.Avalonia" Version="3.0.2" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="12.1.6" />
+  </ItemGroup>
+
+  <!-- WPFUI -->
+  <ItemGroup>
+    <PackageVersion Include="CP.Extensions.Hosting.ReactiveUI.Wpf" Version="6.1.1" />
+    <PackageVersion Include="MaterialDesignThemes" Version="5.4.0" />
+    <PackageVersion Include="ReactiveUI.Drawing" Version="26.0.1" />
+    <PackageVersion Include="ReactiveUI.WPF" Version="26.0.1" />
+  </ItemGroup>
+
+  <!-- MainCore.Test -->
+  <ItemGroup>
+    <PackageVersion Include="Bogus" Version="35.6.5" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
+    <PackageVersion Include="NSubstitute" Version="6.2.0" />
+    <PackageVersion Include="NSubstitute.Analyzers.CSharp" Version="1.0.17" />
+    <PackageVersion Include="ReactiveUI.Testing" Version="26.0.1" />
+    <PackageVersion Include="Serilog.Sinks.TestCorrelator" Version="4.0.2" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+    <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.5" />
+    <PackageVersion Include="TngTech.ArchUnitNET.xUnitV3" Version="0.13.5" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
+  </ItemGroup>
+</Project>

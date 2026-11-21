@@ -54,7 +54,7 @@ namespace MainCore.UI.ViewModels.UserControls
             _canExecute = this.WhenAnyValue(x => x.Accounts.IsEnable);
             _versionHelper = LoadVersionCommand
                 .Do(version => _logger.Information("===============> Current version: {Version} <===============", version))
-                .ToProperty(this, x => x.Version);
+                .ToProperty(this, x => x.Version, initialValue: "");
             Init();
         }
 
@@ -439,7 +439,7 @@ namespace MainCore.UI.ViewModels.UserControls
         }
 
         [ObservableAsProperty]
-        private string _version = "";
+        public partial string Version { get; }
 
         [Reactive]
         private string _pauseText = "[~~!~~]";
