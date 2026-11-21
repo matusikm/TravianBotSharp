@@ -47,10 +47,10 @@ public class RxQueue
 
         taskManager.Add(new LoginTask.Task(accountId), first: true);
 
-        var workTime = context.ByName(accountId, AccountSettingEnums.WorkTimeMin, AccountSettingEnums.WorkTimeMax);
+        var sleepPlanner = Locator.Current.GetService<SleepPlanner>()!;
         var sleepTask = new SleepTask.Task(accountId)
         {
-            ExecuteAt = DateTime.Now.AddMinutes(workTime)
+            ExecuteAt = sleepPlanner.NextSleepStart(accountId)
         };
         taskManager.Add(sleepTask);
 

@@ -25,6 +25,17 @@
 - Auto NPC
 - Auto train troop
 
+## Activity and timing
+
+These settings change when and how the bot acts, so its activity looks less mechanical. They lower the risk of being noticed; they can't make a bot undetectable.
+
+- **Work time** (hours, in Account settings): after it, the bot either sleeps and continues, or, with *log out and stop*, logs out of Travian, closes Chrome and waits until you press Login.
+- **Night sleep**: the bot always sleeps in the night window (default 23:30 to 07:00, shifted by up to 45 minutes each day), in the account's time zone.
+- **Time zone and language** (Chrome settings): leave them empty and the bot looks up the current IP's location at each login (ipinfo.io, falling back to ipapi.co) and sets Chrome's time zone and language to match. Or set them, for example `Asia/Bangkok` and `en-US`.
+- **Farming** goes out in bursts of 2 to 5 sends at the farm interval, then pauses for the idle gap (default 9 to 63 minutes), and skips about one cycle in ten.
+- Click and task delays are usually near the low end of their range, sometimes higher, and now and then much longer. New accounts get their own randomised delay, farm and sleep ranges.
+- Clicks move the mouse to a random point inside the element; text is typed one key at a time.
+
 ## Tech specification
 
 TBS has two desktop front ends that share the same bot core (`MainCore`):

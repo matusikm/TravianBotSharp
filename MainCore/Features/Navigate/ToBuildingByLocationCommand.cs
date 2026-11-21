@@ -11,6 +11,8 @@ public static partial class ToBuildingByLocationCommand
         private string Description => $"{Location}";
     }
 
+    private const float BuildingClickTimeout = 5_000;
+
     private static async ValueTask<Result> HandleAsync(Command command)
     {
         var (browser, location) = command;
@@ -25,11 +27,17 @@ public static partial class ToBuildingByLocationCommand
         {
             var building = browser.CurrentPage.GetBuildingButton(location);
 
-            var javascript = await building.GetAttributeAsync("onclick");
-            var decodedJs = HttpUtility.HtmlDecode(javascript ?? "");
+            // Click the building like a player would. Its shape is an SVG path, so a point inside the
+            // bounding box can miss it; then fall back to running the building's own onclick script.
+            result = await browser.Click(building, BuildingClickTimeout);
+            if (result.IsFailed)
+            {
+                var javascript = await building.GetAttributeAsync("onclick");
+                var decodedJs = HttpUtility.HtmlDecode(javascript ?? "");
 
-            result = await browser.ExecuteJsScript(decodedJs);
-            if (result.IsFailed) return result;
+                result = await browser.ExecuteJsScript(decodedJs);
+                if (result.IsFailed) return result;
+            }
         }
 
         result = await browser.Wait(browser.CurrentPage.GetBuildPanel());

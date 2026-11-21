@@ -1,8 +1,11 @@
 using MainCore.Infrasturecture;
 using MainCore.Infrasturecture.Entities;
 using MainCore.Infrasturecture.Security;
+using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace MainCore.Test;
 
@@ -40,8 +43,24 @@ public sealed class DatabaseTests : IDisposable
         command.CommandText = "SELECT sql FROM sqlite_master WHERE sql IS NOT NULL AND name NOT LIKE '__EFMigrations%' ORDER BY name";
         using var reader = command.ExecuteReader();
         var result = new List<string>();
-        while (reader.Read()) result.Add(reader.GetString(0));
+        while (reader.Read()) result.Add(NormalizeSql(reader.GetString(0)));
         return result;
+    }
+
+    // ALTER TABLE ADD COLUMN appends to the stored CREATE text without line breaks, so compare
+    // the statements with whitespace collapsed.
+    private static string NormalizeSql(string sql)
+    {
+        var collapsed = Regex.Replace(sql, @"\s+", " ");
+        return Regex.Replace(collapsed, @"\s*([(),])\s*", "$1");
+    }
+
+    /// <summary>A database as older versions left it: the first migration's schema and no migration history.</summary>
+    private static void CreateLegacySchema(AppDbContext context)
+    {
+        var baseline = context.Database.GetMigrations().First();
+        context.GetService<IMigrator>().Migrate(baseline);
+        context.Database.ExecuteSqlRaw("DROP TABLE \"__EFMigrationsHistory\"");
     }
 
     private static string RawPassword(SqliteConnection connection)
@@ -80,7 +99,7 @@ public sealed class DatabaseTests : IDisposable
         using var connection = OpenConnection();
         using (var legacy = CreateContext(connection))
         {
-            legacy.Database.EnsureCreated();
+            CreateLegacySchema(legacy);
             legacy.Database.ExecuteSqlRaw("""
                 INSERT INTO Accounts (Id, Username, Server) VALUES (1, 'player', 'https://ts1.x1.europe.travian.com');
                 INSERT INTO Accesses (Id, AccountId, Username, Password, ProxyHost, ProxyPort, ProxyUsername, ProxyPassword, Useragent, LastUsed)

@@ -11,7 +11,7 @@ public interface IChromeBrowser
     bool IsHeadless { get; }
     AccountId AccountId { get; }
 
-    Task<Result> Click(ILocator locator, [CallerArgumentExpression(nameof(locator))] string? expression = null);
+    Task<Result> Click(ILocator locator, float? timeout = null, [CallerArgumentExpression(nameof(locator))] string? expression = null);
 
     Task<Result> ExecuteJsScript(string javascript);
 
