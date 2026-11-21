@@ -55,6 +55,8 @@ public sealed class AccountLocaleTests
     [Theory]
     [InlineData("CZ", null, "cs-CZ")]
     [InlineData("TH", null, "th-TH")]
+    [InlineData("US", null, "en-US")]
+    [InlineData("DE", null, "de-DE")]
     [InlineData("CZ", "cs,sk", "cs-CZ")]
     [InlineData("SG", "en-SG,ms-SG", "en-SG")]
     [InlineData("", null, null)]

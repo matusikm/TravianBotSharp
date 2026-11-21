@@ -48,12 +48,11 @@ iconutil -c icns "$iconset" -o "$app/Contents/Resources/TravianBotSharp.icns"
 
 sed "s/@VERSION@/$version/g" "$here/Info.plist" > "$app/Contents/Info.plist"
 
-# Every Mach-O file needs a signature on Apple Silicon. Sign the loose binaries first
-# (node from Patchright, native .dylib files, the app host), then seal the bundle.
+# Every Mach-O file needs a signature on Apple Silicon, and codesign treats every file in
+# Contents/MacOS as nested code, so sign each one (for .dll and other data files the signature
+# goes into extended attributes, which ditto keeps), then seal the bundle.
 while IFS= read -r -d '' file; do
-  if file -b "$file" | grep -q "Mach-O"; then
-    codesign --force --sign - --timestamp=none "$file"
-  fi
+  codesign --force --sign - --timestamp=none "$file" 2>&1 | grep -v "replacing existing signature" || true
 done < <(find "$app/Contents/MacOS" -type f -print0)
 codesign --force --sign - --timestamp=none "$app"
 codesign --verify --deep --strict "$app"

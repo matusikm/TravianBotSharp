@@ -46,6 +46,11 @@ public static class AccountLocale
         }
     }
 
+    private static readonly HashSet<string> EnglishFirstCountries =
+    [
+        "US", "GB", "IE", "AU", "NZ", "CA", "ZA", "SG", "PH", "IN", "NG", "KE", "GH", "JM", "MT",
+    ];
+
     /// <summary>
     /// A language tag such as th-TH: the country's first listed language when the lookup gave one,
     /// otherwise the first culture .NET knows for that country.
@@ -62,9 +67,13 @@ public static class AccountLocale
             if (IsValidLanguage(tag)) return CultureInfo.GetCultureInfo(tag).Name;
         }
 
+        // Newer ICU data (macOS, recent Linux) also has English variants such as en-TH or en-CZ, so
+        // prefer the local language unless English is the country's main language.
+        var preferEnglish = EnglishFirstCountries.Contains(country);
         return CultureInfo.GetCultures(CultureTypes.SpecificCultures)
             .Where(c => c.Name.EndsWith($"-{country}", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(c => c.Name.Length)
+            .OrderBy(c => (c.TwoLetterISOLanguageName == "en") != preferEnglish)
+            .ThenBy(c => c.Name.Length)
             .ThenBy(c => c.Name, StringComparer.Ordinal)
             .Select(c => c.Name)
             .FirstOrDefault();

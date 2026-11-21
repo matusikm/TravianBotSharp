@@ -41,7 +41,7 @@ env:
 jobs:
   version:
     name: Get version
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       tag: ${{ steps.version.outputs.tag }}
       version: ${{ steps.version.outputs.version }}
@@ -68,7 +68,7 @@ jobs:
   linux:
     name: Build linux-x64
     needs: version
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -200,7 +200,7 @@ jobs:
     name: Publish release
     needs: [version, linux, windows, macos]
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     env:
