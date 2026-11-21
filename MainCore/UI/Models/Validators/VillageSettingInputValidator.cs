@@ -49,6 +49,10 @@ namespace MainCore.UI.Models.Validators
             RuleFor(x => x.WorkshopAmount.Min)
                 .GreaterThanOrEqualTo(0)
                 .WithMessage("Minimum workshop amount troop ({PropertyValue}) should be positive number");
+
+            RuleFor(x => x.SpecialUpgradeMinTime)
+                .GreaterThanOrEqualTo(0)
+                .WithMessage("Minimum build time for the special upgrade ({PropertyValue}) should be 0 or more minutes");
         }
     }
 }

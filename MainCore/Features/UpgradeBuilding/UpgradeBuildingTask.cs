@@ -140,9 +140,9 @@ public sealed partial class UpgradeBuildingTask(
 
             LogBuildingInfo(task.VillageId, plan);
 
-            var canUseSpecialUpgrade = CanUseSpecialUpgrade(task.VillageId);
+            var (canUseSpecialUpgrade, specialUpgradeMinTime) = GetSpecialUpgradeSetting(task.VillageId);
 
-            result = await handleUpgradeCommand.HandleAsync(new(browser, plan, canUseSpecialUpgrade), cancellationToken);
+            result = await handleUpgradeCommand.HandleAsync(new(browser, plan, canUseSpecialUpgrade, specialUpgradeMinTime), cancellationToken);
             if (result.IsFailed) return result;
 
             logger.Information("Upgrade for {Type} at #{Location} completed successfully.", plan.Type, plan.Location);
@@ -273,11 +273,12 @@ public sealed partial class UpgradeBuildingTask(
         return context.BooleanByName(villageId, VillageSettingEnums.UseHeroResourceForBuilding);
     }
 
-    private bool CanUseSpecialUpgrade(VillageId villageId)
+    private (bool Enabled, TimeSpan MinTime) GetSpecialUpgradeSetting(VillageId villageId)
     {
         using var context = contextFactory.CreateDbContext();
         var useSpecialUpgrade = context.BooleanByName(villageId, VillageSettingEnums.UseSpecialUpgrade);
-        return useSpecialUpgrade;
+        var minMinutes = context.ByName(villageId, VillageSettingEnums.SpecialUpgradeMinTime);
+        return (useSpecialUpgrade, TimeSpan.FromMinutes(Math.Max(0, minMinutes)));
     }
 
     private void AddCropland(AccountId accountId, VillageId villageId)
