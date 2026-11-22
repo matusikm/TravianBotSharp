@@ -28,6 +28,8 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
         public int Level => Math.Max(Math.Max(CurrentLevel, QueueLevel), JobLevel);
     }
 
+    public record JobMove(int JobId, int TargetIndex);
+
     [RegisterSingleton<BuildViewModel>]
     public partial class BuildViewModel : VillageTabViewModelBase
     {
@@ -77,6 +79,7 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
                 DownCommand.Select(_ => new JobsModified(AccountId, VillageId)),
                 TopCommand.Select(_ => new JobsModified(AccountId, VillageId)),
                 BottomCommand.Select(_ => new JobsModified(AccountId, VillageId)),
+                MoveToCommand.Select(_ => new JobsModified(AccountId, VillageId)),
                 DeleteCommand.Select(_ => new JobsModified(AccountId, VillageId)),
                 DeleteAllCommand.Select(_ => new JobsModified(AccountId, VillageId)),
                 ImportCommand.Select(_ => new JobsModified(AccountId, VillageId))
@@ -382,6 +385,16 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
 
             using var context = _contextFactory.CreateDbContext();
             context.MoveJob(new JobId(Jobs.SelectedItem!.Id), MoveEnums.Bottom);
+        }
+
+        /// <summary>Drops a job (dragged with the mouse) at a new index in the list.</summary>
+        [ReactiveCommand(RunInBackground = true)]
+        private async Task MoveTo(JobMove move)
+        {
+            if (!await EnsureAccountPaused()) return;
+
+            using var context = _contextFactory.CreateDbContext();
+            context.MoveJobTo(new JobId(move.JobId), move.TargetIndex);
         }
 
         [ReactiveCommand(RunInBackground = true)]

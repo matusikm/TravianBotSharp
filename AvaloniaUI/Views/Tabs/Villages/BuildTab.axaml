@@ -4,6 +4,17 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:mi="using:Material.Icons.Avalonia"
     xmlns:v="using:AvaloniaUI.Views.Tabs.Villages">
+    <v:BuildTabBase.Styles>
+        <!-- Drop marker while a job is dragged: a line above or below the row it will land next to. -->
+        <Style Selector="ListBox#JobsGrid ListBoxItem.dropAbove">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+            <Setter Property="BorderThickness" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="ListBox#JobsGrid ListBoxItem.dropBelow">
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlHighlightAccentBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+        </Style>
+    </v:BuildTabBase.Styles>
     <Grid ColumnDefinitions="*,2,*,2,*">
         <Grid Grid.Column="0" RowDefinitions="Auto,*">
             <Border Classes="Box" Grid.Row="0">
@@ -68,7 +79,7 @@
                 <Button x:Name="JobDeleteButton" Margin="3" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" ToolTip.Tip="Delete selected job"><mi:MaterialIcon Kind="Delete" /></Button>
             </UniformGrid>
             <Border Grid.Row="2" Classes="Box">
-                <ListBox x:Name="JobsGrid" SelectionMode="Single" ItemTemplate="{StaticResource ListBoxColorItem}">
+                <ListBox x:Name="JobsGrid" SelectionMode="Single" ToolTip.Tip="Drag a job to reorder it" ItemTemplate="{StaticResource ListBoxColorItem}">
                     <ListBox.ContextMenu>
                         <ContextMenu>
                             <MenuItem x:Name="TopButton" Header="Top"><MenuItem.Icon><mi:MaterialIcon Kind="ArrowUpBold" /></MenuItem.Icon></MenuItem>

@@ -105,4 +105,23 @@ public sealed class MoveJobTests : IDisposable
     {
         Move(12345, MoveEnums.Top).ShouldBe(-1);
     }
+
+    [Theory]
+    [InlineData(3, 0, new[] { 3, 0, 1, 2 })]
+    [InlineData(0, 2, new[] { 1, 2, 0, 3 })]
+    [InlineData(1, 3, new[] { 0, 2, 3, 1 })]
+    [InlineData(2, 99, new[] { 0, 1, 3, 2 })]
+    [InlineData(2, -5, new[] { 2, 0, 1, 3 })]
+    public void MoveJobTo_DropsAtIndexAndPersists(int job, int target, int[] expectedOrder)
+    {
+        var ids = Seed(1, 0, 1, 2, 3);
+
+        using (var context = new AppDbContext(_options))
+        {
+            context.MoveJobTo(new JobId(ids[job]), target).ShouldBe(Math.Clamp(target, 0, 3));
+        }
+
+        Order(1).Select(x => x.Id).ShouldBe(expectedOrder.Select(i => ids[i]));
+        Order(1).Select(x => x.Position).ShouldBe([0, 1, 2, 3]);
+    }
 }
