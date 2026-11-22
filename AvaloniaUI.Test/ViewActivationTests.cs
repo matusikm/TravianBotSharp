@@ -24,9 +24,6 @@ namespace AvaloniaUI.Test;
 /// </summary>
 public class ViewActivationTests
 {
-    // One headless UI thread for the whole run; disposing a session blocks on its dispatcher.
-    private static readonly Lazy<HeadlessUnitTestSession> Session =
-        new(() => HeadlessUnitTestSession.StartNew(typeof(AvaloniaUI.App), AvaloniaTestIsolationLevel.PerTest));
 
     public static IEnumerable<TheoryDataRow<string>> Views() =>
         FindViews().Select(v => new TheoryDataRow<string>(v.View.Name) { TestDisplayName = v.View.Name });
@@ -62,9 +59,9 @@ public class ViewActivationTests
     {
         var (viewType, vmType) = FindViews().Single(v => v.View.Name == viewName);
 
-        await Session.Value.Dispatch(() =>
+        await TestApp.Session.Value.Dispatch(() =>
         {
-            using var host = BuildHost();
+            using var host = TestApp.BuildHost();
             var vm = ActivatorUtilities.GetServiceOrCreateInstance(host.Services, vmType);
 
             var errors = new List<Exception>();
@@ -91,15 +88,4 @@ public class ViewActivationTests
         }, CancellationToken.None);
     }
 
-    private static IHost BuildHost() =>
-        AppMixins.GetHostBuilder()
-            .ConfigureServices(services =>
-            {
-                services.UseMicrosoftDependencyResolver();
-                var builder = AppLocator.CurrentMutable.CreateReactiveUIBuilder();
-                builder.WithRegistration(r => r.InitializeSplat());
-                builder.WithAvalonia();
-                builder.BuildApp();
-            })
-            .Build();
 }

@@ -27,15 +27,13 @@ namespace AvaloniaUI.Test;
 /// <summary>Drags rows of the Build tab's job list with a headless mouse.</summary>
 public class BuildTabDragTests
 {
-    private static readonly Lazy<HeadlessUnitTestSession> Session =
-        new(() => HeadlessUnitTestSession.StartNew(typeof(AvaloniaUI.App), AvaloniaTestIsolationLevel.PerTest));
 
     [Fact]
     public async Task Dragging_last_job_onto_first_marks_drop_and_runs_move()
     {
-        await Session.Value.Dispatch(() =>
+        await TestApp.Session.Value.Dispatch(() =>
         {
-            using var host = BuildHost();
+            using var host = TestApp.BuildHost();
             var (window, view, vm) = Open(host);
             var executions = 0;
             using var _ = vm.MoveToCommand.IsExecuting.Subscribe(x => { if (x) executions++; });
@@ -63,9 +61,9 @@ public class BuildTabDragTests
     [Fact]
     public async Task Plain_click_selects_without_moving()
     {
-        await Session.Value.Dispatch(() =>
+        await TestApp.Session.Value.Dispatch(() =>
         {
-            using var host = BuildHost();
+            using var host = TestApp.BuildHost();
             var (window, view, vm) = Open(host);
             var executions = 0;
             using var _ = vm.MoveToCommand.IsExecuting.Subscribe(x => { if (x) executions++; });
@@ -100,15 +98,4 @@ public class BuildTabDragTests
         return item.TranslatePoint(new Point(item.Bounds.Width / 2, item.Bounds.Height / 2), window)!.Value;
     }
 
-    private static IHost BuildHost() =>
-        AppMixins.GetHostBuilder()
-            .ConfigureServices(services =>
-            {
-                services.UseMicrosoftDependencyResolver();
-                var builder = AppLocator.CurrentMutable.CreateReactiveUIBuilder();
-                builder.WithRegistration(r => r.InitializeSplat());
-                builder.WithAvalonia();
-                builder.BuildApp();
-            })
-            .Build();
 }
