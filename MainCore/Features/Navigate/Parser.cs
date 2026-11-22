@@ -52,8 +52,12 @@
 
         public static ILocator GetBuildingButton(this IPage page, int location)
         {
-            var node = page.Locator($".village2 div.buildingSlot.a{location} svg path");
-            return node.First;
+            // A slot can hold several clickable shapes: the building itself and, once hovered, a
+            // g.highlightShape drawn on top of it with the same onclick. SVG paints later elements on
+            // top, so take the last clickable path; the locator re-resolves at click time, after the
+            // hover has added the highlight, so the click lands on the shape that receives it.
+            var node = page.Locator($".village2 div.buildingSlot.a{location} svg path[onclick]");
+            return node.Last;
         }
 
         public static async Task<int> GetBuildingLocation(this IPage page, BuildingEnums buildingType)

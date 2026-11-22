@@ -16,8 +16,10 @@ public static partial class OpenDailQuestPanelCommand
         result = await browser.Click(dailyQuestButton);
         if (result.IsFailed) return result;
 
-        var getDailyQuestItems = browser.CurrentPage.GetDailyQuestItems();
-        result = await browser.Wait(getDailyQuestItems);
+        // The panel lists many quests; waiting on the whole list breaks Playwright's strict mode,
+        // so wait for the first one to show up.
+        var dailyQuestItems = browser.CurrentPage.GetDailyQuestItems();
+        result = await browser.Wait(dailyQuestItems.First);
         if (result.IsFailed) return result;
 
         return Result.Ok();
