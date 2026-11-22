@@ -31,7 +31,7 @@ public class BuildTabDragTests
     [Fact]
     public async Task Dragging_last_job_onto_first_marks_drop_and_runs_move()
     {
-        await TestApp.Session.Value.Dispatch(() =>
+        await TestApp.Session.Value.Dispatch(async () =>
         {
             using var host = TestApp.BuildHost();
             var (window, view, vm) = Open(host);
@@ -53,6 +53,12 @@ public class BuildTabDragTests
             Dispatcher.UIThread.RunJobs();
 
             ((ListBoxItem)grid.ContainerFromIndex(0)!).Classes.ShouldNotContain("dropAbove");
+            // The command runs in the background, so IsExecuting flips a moment later.
+            for (var i = 0; i < 100 && executions == 0; i++)
+            {
+                await Task.Delay(20);
+                Dispatcher.UIThread.RunJobs();
+            }
             executions.ShouldBe(1);
             window.Close();
         }, CancellationToken.None);
@@ -61,7 +67,7 @@ public class BuildTabDragTests
     [Fact]
     public async Task Plain_click_selects_without_moving()
     {
-        await TestApp.Session.Value.Dispatch(() =>
+        await TestApp.Session.Value.Dispatch(async () =>
         {
             using var host = TestApp.BuildHost();
             var (window, view, vm) = Open(host);
@@ -72,6 +78,7 @@ public class BuildTabDragTests
             var row = Center(window, grid, 2);
             window.MouseDown(row, MouseButton.Left);
             window.MouseUp(row, MouseButton.Left);
+            await Task.Delay(200);
             Dispatcher.UIThread.RunJobs();
 
             executions.ShouldBe(0);
