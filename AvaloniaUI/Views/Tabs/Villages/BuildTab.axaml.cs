@@ -1,4 +1,4 @@
-using MainCore.UI.ViewModels.Tabs.Villages;
+﻿using MainCore.UI.ViewModels.Tabs.Villages;
 
 using ReactiveUI;
 using ReactiveUI.Avalonia;
@@ -46,6 +46,12 @@ namespace AvaloniaUI.Views.Tabs.Villages
                 this.BindCommand(ViewModel, vm => vm.BottomCommand, v => v.BottomButton).DisposeWith(d);
                 this.BindCommand(ViewModel, vm => vm.DeleteCommand, v => v.DeleteButton).DisposeWith(d);
                 this.BindCommand(ViewModel, vm => vm.DeleteAllCommand, v => v.DeleteAllButton).DisposeWith(d);
+
+                this.BindCommand(ViewModel, vm => vm.TopCommand, v => v.JobTopButton).DisposeWith(d);
+                this.BindCommand(ViewModel, vm => vm.UpCommand, v => v.JobUpButton).DisposeWith(d);
+                this.BindCommand(ViewModel, vm => vm.DownCommand, v => v.JobDownButton).DisposeWith(d);
+                this.BindCommand(ViewModel, vm => vm.BottomCommand, v => v.JobBottomButton).DisposeWith(d);
+                this.BindCommand(ViewModel, vm => vm.DeleteCommand, v => v.JobDeleteButton).DisposeWith(d);
 
                 this.BindCommand(ViewModel, vm => vm.BuildNormalCommand, v => v.NormalBuild).DisposeWith(d);
                 this.OneWayBind(ViewModel, vm => vm.NormalBuildInput.Buildings, v => v.NormalBuildings.ItemsSource).DisposeWith(d);

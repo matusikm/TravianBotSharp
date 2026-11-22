@@ -2,89 +2,48 @@
 {
     public static class BuildViewModelExtension
     {
-        public static int SwapJob(this AppDbContext context, JobId jobId, MoveEnums move)
-        {
-            var job = context.Jobs
-                .FirstOrDefault(x => x.Id == jobId.Value);
-
-            if (job is null) return -1;
-
-            var currentPosition = job.Position;
-            Job? targetJob;
-
-            switch (move)
-            {
-                case MoveEnums.Up:
-                    if (currentPosition == 0) return currentPosition;
-                    targetJob = context.Jobs
-                        .Where(x => x.VillageId == job.VillageId)
-                        .FirstOrDefault(x => x.Position == currentPosition - 1);
-                    break;
-
-                case MoveEnums.Down:
-                    var count = context.Jobs
-                        .Count(x => x.VillageId == job.VillageId);
-                    if (currentPosition == count - 1) return currentPosition;
-                    targetJob = context.Jobs
-                        .Where(x => x.VillageId == job.VillageId)
-                        .FirstOrDefault(x => x.Position == currentPosition + 1);
-                    break;
-
-                default:
-                    return currentPosition;
-            }
-            if (targetJob is null) return currentPosition;
-
-            (targetJob.Position, job.Position) = (job.Position, targetJob.Position);
-
-            context.Update(job);
-            context.Update(targetJob);
-            context.SaveChanges();
-
-            return job.Position;
-        }
-
+        /// <summary>
+        /// Moves a job within its village's build queue and saves the new order. Positions are
+        /// rewritten as 0..n-1 in one SaveChanges, so gaps or duplicates left by older versions
+        /// heal on the first move. Returns the job's new index, or -1 if it no longer exists.
+        /// </summary>
         public static int MoveJob(this AppDbContext context, JobId jobId, MoveEnums move)
         {
-            var job = context.Jobs
-                    .FirstOrDefault(x => x.Id == jobId.Value);
+            var villageId = context.Jobs
+                .Where(x => x.Id == jobId.Value)
+                .Select(x => (int?)x.VillageId)
+                .FirstOrDefault();
 
-            if (job is null) return -1;
+            if (villageId is null) return -1;
 
-            var currentPosition = job.Position;
+            var jobs = context.Jobs
+                .Where(x => x.VillageId == villageId.Value)
+                .OrderBy(x => x.Position)
+                .ThenBy(x => x.Id)
+                .ToList();
 
-            switch (move)
+            var index = jobs.FindIndex(x => x.Id == jobId.Value);
+            var job = jobs[index];
+
+            var newIndex = move switch
             {
-                case MoveEnums.Top:
-                    if (currentPosition == 0) return currentPosition;
-                    context.Jobs
-                        .Where(x => x.VillageId == job.VillageId)
-                        .Where(x => x.Position < currentPosition)
-                        .ExecuteUpdate(x => x.SetProperty(y => y.Position, y => y.Position + 1));
+                MoveEnums.Top => 0,
+                MoveEnums.Up => Math.Max(index - 1, 0),
+                MoveEnums.Down => Math.Min(index + 1, jobs.Count - 1),
+                MoveEnums.Bottom => jobs.Count - 1,
+                _ => index,
+            };
 
-                    job.Position = 0;
-                    break;
+            jobs.RemoveAt(index);
+            jobs.Insert(newIndex, job);
 
-                case MoveEnums.Bottom:
-                    var count = context.Jobs
-                        .Count(x => x.VillageId == job.VillageId);
-                    if (currentPosition == count - 1) return currentPosition;
-                    context.Jobs
-                        .Where(x => x.VillageId == job.VillageId)
-                        .Where(x => x.Position > currentPosition)
-                        .ExecuteUpdate(x => x.SetProperty(y => y.Position, y => y.Position - 1));
-
-                    job.Position = count - 1;
-                    break;
-
-                default:
-                    return currentPosition;
+            for (var i = 0; i < jobs.Count; i++)
+            {
+                if (jobs[i].Position != i) jobs[i].Position = i;
             }
 
-            context.Update(job);
             context.SaveChanges();
-
-            return job.Position;
+            return newIndex;
         }
 
         public static void Upgrade(this AppDbContext context, VillageId villageId, int location, bool isMaxLevel)
