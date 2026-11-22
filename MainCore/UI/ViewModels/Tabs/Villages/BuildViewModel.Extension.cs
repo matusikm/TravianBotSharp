@@ -3,11 +3,29 @@
     public static class BuildViewModelExtension
     {
         /// <summary>
-        /// Moves a job within its village's build queue and saves the new order. Positions are
-        /// rewritten as 0..n-1 in one SaveChanges, so gaps or duplicates left by older versions
-        /// heal on the first move. Returns the job's new index, or -1 if it no longer exists.
+        /// Moves a job within its village's build queue and saves the new order.
+        /// Returns the job's new index, or -1 if it no longer exists.
         /// </summary>
-        public static int MoveJob(this AppDbContext context, JobId jobId, MoveEnums move)
+        public static int MoveJob(this AppDbContext context, JobId jobId, MoveEnums move) =>
+            context.MoveJobTo(jobId, (index, count) => move switch
+            {
+                MoveEnums.Top => 0,
+                MoveEnums.Up => index - 1,
+                MoveEnums.Down => index + 1,
+                MoveEnums.Bottom => count - 1,
+                _ => index,
+            });
+
+        /// <summary>
+        /// Moves a job to <paramref name="targetIndex"/> in its village's build queue (clamped to the list),
+        /// as when it is dragged onto another row. Returns the job's new index, or -1 if it no longer exists.
+        /// </summary>
+        public static int MoveJobTo(this AppDbContext context, JobId jobId, int targetIndex) =>
+            context.MoveJobTo(jobId, (_, _) => targetIndex);
+
+        // Positions are rewritten as 0..n-1 in one SaveChanges, so gaps or duplicates left by older
+        // versions heal on the first move.
+        private static int MoveJobTo(this AppDbContext context, JobId jobId, Func<int, int, int> target)
         {
             var villageId = context.Jobs
                 .Where(x => x.Id == jobId.Value)
@@ -24,15 +42,7 @@
 
             var index = jobs.FindIndex(x => x.Id == jobId.Value);
             var job = jobs[index];
-
-            var newIndex = move switch
-            {
-                MoveEnums.Top => 0,
-                MoveEnums.Up => Math.Max(index - 1, 0),
-                MoveEnums.Down => Math.Min(index + 1, jobs.Count - 1),
-                MoveEnums.Bottom => jobs.Count - 1,
-                _ => index,
-            };
+            var newIndex = Math.Clamp(target(index, jobs.Count), 0, jobs.Count - 1);
 
             jobs.RemoveAt(index);
             jobs.Insert(newIndex, job);
