@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 
 using FluentValidation;
@@ -351,8 +351,7 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
             if (!await EnsureJobSelected()) return;
 
             using var context = _contextFactory.CreateDbContext();
-            var newIndex = context.SwapJob(new JobId(Jobs[Jobs.SelectedIndex].Id), MoveEnums.Up);
-            Jobs.SelectedIndex = newIndex;
+            context.MoveJob(new JobId(Jobs.SelectedItem!.Id), MoveEnums.Up);
         }
 
         [ReactiveCommand(RunInBackground = true)]
@@ -362,8 +361,7 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
             if (!await EnsureJobSelected()) return;
 
             using var context = _contextFactory.CreateDbContext();
-            var newIndex = context.SwapJob(new JobId(Jobs[Jobs.SelectedIndex].Id), MoveEnums.Down);
-            Jobs.SelectedIndex = newIndex;
+            context.MoveJob(new JobId(Jobs.SelectedItem!.Id), MoveEnums.Down);
         }
 
         [ReactiveCommand(RunInBackground = true)]
@@ -373,8 +371,7 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
             if (!await EnsureJobSelected()) return;
 
             using var context = _contextFactory.CreateDbContext();
-            var newIndex = context.MoveJob(new JobId(Jobs[Jobs.SelectedIndex].Id), MoveEnums.Top);
-            Jobs.SelectedIndex = newIndex;
+            context.MoveJob(new JobId(Jobs.SelectedItem!.Id), MoveEnums.Top);
         }
 
         [ReactiveCommand(RunInBackground = true)]
@@ -384,8 +381,7 @@ namespace MainCore.UI.ViewModels.Tabs.Villages
             if (!await EnsureJobSelected()) return;
 
             using var context = _contextFactory.CreateDbContext();
-            var newIndex = context.MoveJob(new JobId(Jobs[Jobs.SelectedIndex].Id), MoveEnums.Bottom);
-            Jobs.SelectedIndex = newIndex;
+            context.MoveJob(new JobId(Jobs.SelectedItem!.Id), MoveEnums.Bottom);
         }
 
         [ReactiveCommand(RunInBackground = true)]
